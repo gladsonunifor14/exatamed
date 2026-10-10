@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% from "_macros.html" import select_local, tabela %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">{{ titulo }}</h1>
+  <div class="d-print-none">
+    <a class="btn btn-outline-secondary" href="{{ url_for('relatorios.indice') }}"><i class="bi bi-arrow-left"></i> Relatórios</a>
+    <button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+    <a class="btn btn-exata" href="{{ url_for('relatorios.exibir', chave=chave, formato='csv', **args.to_dict()) }}"><i class="bi bi-filetype-csv"></i> Exportar CSV</a>
+  </div>
+</div>
+<form class="card card-body mb-4 d-print-none" method="get"><div class="row g-2 align-items-end">
+  {% if filtros.startswith('periodo') %}
+  <div class="col-md-2"><label class="form-label">De</label><input class="form-control" type="date" name="inicio" value="{{ args.inicio or inicio_padrao.isoformat() }}"></div>
+  <div class="col-md-2"><label class="form-label">Até</label><input class="form-control" type="date" name="fim" value="{{ args.fim or fim_padrao.isoformat() }}"></div>
+  {% endif %}
+  {% if filtros.endswith('local') %}
+  <div class="col-md-3"><label class="form-label">{{ 'Local de dispensação' if chave == 'consumo_local' else 'Local' }}</label>{{ select_local(locais, 'localizacao_id', args.localizacao_id, obrigatorio=False, vazio='Todos') }}</div>
+  {% endif %}
+  {% if filtros == 'periodo_paciente' %}
+  <div class="col-md-4"><label class="form-label">Paciente</label><select class="form-select" name="paciente_id"><option value="">Todos</option>
+    {% for p in pacientes %}<option value="{{ p.id }}" {{ 'selected' if args.paciente_id == p.id|string }}>{{ p.nome }}</option>{% endfor %}</select></div>
+  {% endif %}
+  {% if filtros == 'historico' %}
+  <div class="col-md-3"><label class="form-label">Histórico para consumo médio (dias)</label><input class="form-control" type="number" min="1" name="dias" value="{{ args.dias or 30 }}"></div>
+  {% endif %}
+  <div class="col-md-2"><button class="btn btn-exata w-100"><i class="bi bi-arrow-repeat"></i> Gerar</button></div>
+</div></form>
+<div class="d-none d-print-block mb-3 small">ExataMed — emitido em {{ hoje|data }}{% if args.inicio %} · período {{ args.inicio }} a {{ args.fim }}{% endif %}</div>
+{% if chave == 'pedido_compra' %}
+<div class="alert alert-light border small">Sugestão de compra = estoque máximo − saldo utilizável (lotes não vencidos), quando o saldo atinge o estoque mínimo. Cobertura = saldo ÷ consumo médio diário. Custo estimado pelo custo da entrada mais recente.</div>
+{% endif %}
+{% for t in tabelas %}{{ tabela(t) }}{% endfor %}
+{% endblock %}

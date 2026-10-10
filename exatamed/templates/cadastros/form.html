@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}{{ cadastro.titulo_singular }}{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">{{ 'Editar' if obj.id else 'Novo(a)' }} {{ cadastro.titulo_singular|lower }}</h1>
+<form method="post" class="card"><div class="card-body">
+  <div class="row g-3">
+  {% for c in cadastro.campos %}
+    {% if c.secao %}<div class="col-12"><h2 class="h6 secao-form">{{ c.secao }}</h2></div>{% endif %}
+    {% if valores is not none %}{% set v = valores.get(c.nome, '') %}
+    {% else %}{% set bruto = obj|attr(c.nome) %}{% set v = (bruto.isoformat() if bruto is not none and c.tipo == 'date' else ('%g'|format(bruto) if c.tipo == 'number' and bruto is not none else (bruto if bruto is not none else ''))) %}{% endif %}
+    <div class="col-md-{{ c.largura }}">
+      {% if c.tipo == 'checkbox' %}
+        <div class="form-check mt-md-4 pt-md-2">
+          <input class="form-check-input" type="checkbox" id="{{ c.nome }}" name="{{ c.nome }}" {% if v %}checked{% endif %}>
+          <label class="form-check-label" for="{{ c.nome }}">{{ c.rotulo }}</label>
+        </div>
+      {% else %}
+      <label class="form-label {{ 'obrigatorio' if c.obrigatorio }}" for="{{ c.nome }}">{{ c.rotulo }}</label>
+      {% if c.tipo == 'textarea' %}
+        <textarea class="form-control" id="{{ c.nome }}" name="{{ c.nome }}" rows="2">{{ v }}</textarea>
+      {% elif c.tipo == 'select' %}
+        <select class="form-select" id="{{ c.nome }}" name="{{ c.nome }}" {{ 'required' if c.obrigatorio }}>
+          {% for valor, rotulo in c.lista_opcoes() %}<option value="{{ valor }}" {% if valor|string == v|string %}selected{% endif %}>{{ rotulo or '—' }}</option>{% endfor %}
+        </select>
+      {% else %}
+        <input class="form-control" id="{{ c.nome }}" name="{{ c.nome }}" value="{{ v }}"
+          type="{{ 'date' if c.tipo == 'date' else 'text' }}" {% if c.tipo == 'number' %}inputmode="decimal"{% endif %} {{ 'required' if c.obrigatorio }}>
+      {% endif %}
+      {% endif %}
+      {% if c.ajuda %}<div class="form-text">{{ c.ajuda }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  {% if obj.idade is defined and obj.idade is not none %}
+    <div class="col-12 text-muted">Idade atual: <strong>{{ obj.idade }} anos</strong></div>
+  {% endif %}
+  </div>
+</div>
+<div class="card-footer text-end">
+  <a class="btn btn-outline-secondary" href="{{ url_for('cadastros.listar', chave=cadastro.chave) }}">Cancelar</a>
+  <button class="btn btn-exata"><i class="bi bi-check-lg"></i> Salvar</button>
+</div></form>
+{% endblock %}

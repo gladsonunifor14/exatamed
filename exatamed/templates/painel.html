@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1 class="h3 mb-4">Painel da farmácia <small class="text-muted fs-6">{{ hoje|data }}</small></h1>
+<div class="row g-3 mb-4">
+  {% for rotulo, valor in [('Itens ativos', total_produtos), ('Pacientes', total_pacientes), ('Dispensações hoje', dispensacoes_hoje), ('Consumo hoje (PEPS)', consumo_hoje|moeda), ('Valor do estoque (PEPS)', valor_estoque|moeda)] %}
+  <div class="col-6 col-md"><div class="card kpi h-100"><div class="card-body">
+    <div class="rotulo">{{ rotulo }}</div><div class="valor">{{ valor }}</div>
+  </div></div></div>
+  {% endfor %}
+</div>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between"><span class="fw-semibold"><i class="bi bi-cart-plus"></i> Itens a repor</span>
+        <a href="{{ url_for('relatorios.exibir', chave='pedido_compra') }}">Pedido de compra</a></div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Produto</th><th class="text-end">Saldo</th><th class="text-end">Mín.</th><th class="text-end">Comprar</th></tr></thead>
+        <tbody>
+        {% for r in repor %}
+          <tr class="{{ 'table-danger' if r.situacao == 'Abaixo do mínimo' else 'table-warning' }}"><td>{{ r.produto }}</td><td class="text-end">{{ r.saldo|numero }}</td><td class="text-end">{{ r.produto.estoque_minimo|numero }}</td><td class="text-end">{{ r.sugestao|numero }} {{ r.produto.unidade_medida }}</td></tr>
+        {% else %}<tr><td colspan="4" class="text-muted text-center py-3">Todos os itens acima do estoque mínimo.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-calendar-x"></i> Lotes vencidos ou a vencer (90 dias)</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Produto</th><th>Lote</th><th>Local</th><th>Validade</th><th class="text-end">Saldo</th></tr></thead>
+        <tbody>
+        {% for l in a_vencer %}
+          <tr class="{{ 'table-danger' if l.vencido else 'table-warning' }}"><td>{{ l.produto }}</td><td>{{ l.numero_lote }}</td><td>{{ l.localizacao }}</td><td>{{ l.validade|data }}{% if l.vencido %} <span class="badge bg-danger">vencido</span>{% endif %}</td><td class="text-end">{{ l.saldo|numero }}</td></tr>
+        {% else %}<tr><td colspan="5" class="text-muted text-center py-3">Nenhum lote próximo do vencimento.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between"><span class="fw-semibold"><i class="bi bi-prescription2"></i> Últimas dispensações</span>
+        <a href="{{ url_for('estoque.dispensacao') }}" class="btn btn-sm btn-exata">Nova dispensação</a></div>
+      <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Nº</th><th>Data</th><th>Paciente</th><th>Local</th><th>Médico</th><th class="text-end">Custo</th></tr></thead>
+        <tbody>
+        {% for d in ultimas %}
+          <tr><td><a href="{{ url_for('estoque.ver_dispensacao', id=d.id) }}">{{ d.id }}</a></td><td>{{ d.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ d.paciente.nome }}</td><td>{{ d.destino.nome }}</td><td>{{ d.medico.nome if d.medico else '' }}</td><td class="text-end">{{ d.custo_total|moeda }}</td></tr>
+        {% else %}<tr><td colspan="6" class="text-muted text-center py-3">Nenhuma dispensação registrada.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

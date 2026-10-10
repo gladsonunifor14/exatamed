@@ -1,0 +1,11 @@
+:root { --exata: #0b6e6e; --exata-escuro: #075454; }
+body { background: #f4f7f7; }
+.bg-exata { background: var(--exata); }
+.btn-exata { background: var(--exata); border-color: var(--exata); color: #fff; }
+.btn-exata:hover { background: var(--exata-escuro); border-color: var(--exata-escuro); color: #fff; }
+.card { border: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.kpi .valor { font-size: 1.6rem; font-weight: 600; color: var(--exata-escuro); }
+.kpi .rotulo { color: #6c757d; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+.form-label.obrigatorio::after { content: " *"; color: #dc3545; }
+.secao-form { border-bottom: 1px solid #dee2e6; color: var(--exata-escuro); padding-bottom: .25rem; margin: 1.25rem 0 .75rem; }
+@media print { body { background: #fff; } .card { box-shadow: none; } }
