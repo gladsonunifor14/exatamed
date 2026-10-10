@@ -32,6 +32,7 @@ def garantir_locais_principais():
 COLUNAS_NOVAS = [
     ("movimentacoes", "usuario_id", "INTEGER REFERENCES usuarios(id)"),
     ("dispensacoes", "usuario_id", "INTEGER REFERENCES usuarios(id)"),
+    ("usuarios", "ocultar_primeiros_passos", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 
@@ -91,7 +92,7 @@ def create_app(config=None):
     db.init_app(app)
     csrf.init_app(app)
 
-    from . import auth, cadastros, views
+    from . import ajuda, auth, cadastros, views
     auth.login_manager.init_app(app)
     app.before_request(auth.exigir_login)
     app.register_blueprint(auth.bp)
@@ -99,6 +100,7 @@ def create_app(config=None):
     app.register_blueprint(views.bp_estoque)
     app.register_blueprint(views.bp_relatorios)
     app.register_blueprint(cadastros.bp)
+    app.register_blueprint(ajuda.bp)
 
     @app.route("/saude")
     def saude():
@@ -161,7 +163,10 @@ def create_app(config=None):
         atualizar_esquema()
         garantir_locais_principais()
         auth.criar_admin_inicial()
-        if not Usuario.query.first() and not app.config.get("TESTING"):
+        # Avisa ao iniciar o servidor; nos comandos (demo, criar-admin) o usuário está sendo criado.
+        contexto = click.get_current_context(silent=True)
+        em_comando = contexto is not None and contexto.command.name != "run"
+        if not Usuario.query.first() and not app.config.get("TESTING") and not em_comando:
             app.logger.warning(
                 "Nenhum usuário cadastrado. Crie o administrador com 'flask --app exatamed criar-admin' "
                 "ou defina EXATAMED_ADMIN_LOGIN e EXATAMED_ADMIN_SENHA.")

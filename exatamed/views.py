@@ -8,6 +8,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 from flask_login import current_user
 
 from . import estoque, relatorios
+from .ajuda import primeiros_passos
 from .auth import perfil_requerido
 from .estoque import EstoqueError
 from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
@@ -82,7 +83,16 @@ def painel():
         a_vencer=a_vencer,
         hoje=hoje,
         ultimas=Dispensacao.query.order_by(Dispensacao.data.desc()).limit(8).all(),
+        passos=_passos_do_painel(),
     )
+
+
+def _passos_do_painel():
+    """Checklist de implantação: só para o administrador, até tudo estar feito ou ele ocultar."""
+    if not current_user.pode(Usuario.ADMIN) or current_user.ocultar_primeiros_passos:
+        return None
+    passos = primeiros_passos()
+    return None if all(p["feito"] for p in passos) else passos
 
 
 # --------------------------------------------------------------------------- estoque

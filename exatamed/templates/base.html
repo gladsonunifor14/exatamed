@@ -41,6 +41,7 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('relatorios.indice') }}"><i class="bi bi-graph-up"></i> Relatórios</a></li>
       </ul>
       <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('ajuda.guia') }}"><i class="bi bi-question-circle"></i> Ajuda</a></li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> {{ current_user.nome }}
             <span class="badge bg-light text-dark ms-1">{{ current_user.perfil_descricao }}</span></a>

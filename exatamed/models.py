@@ -68,6 +68,7 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     tentativas_falhas = db.Column(db.Integer, default=0, nullable=False)
     bloqueado_ate = db.Column(db.DateTime)
     ultimo_acesso = db.Column(db.DateTime)
+    ocultar_primeiros_passos = db.Column(db.Boolean, default=False, nullable=False)
 
     def definir_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)

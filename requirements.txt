@@ -2,6 +2,8 @@ Flask>=3.0,<4
 Flask-SQLAlchemy>=3.1,<4
 Flask-Login>=0.6,<1
 Flask-WTF>=1.2,<2
+# Converte o guia do usuário (Markdown) para a página Ajuda.
+Markdown>=3.5,<4
 # Produção: servidor WSGI e driver do PostgreSQL.
 gunicorn>=22
 psycopg[binary]>=3.1,<4
