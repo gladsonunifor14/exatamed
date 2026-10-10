@@ -1,0 +1,98 @@
+{% extends "base.html" %}{% from "_macros.html" import select_produto, select_local %}
+{% block titulo %}Dispensação{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3"><i class="bi bi-prescription2"></i> Dispensação</h1>
+{% if alerta %}
+<div class="alert alert-danger"><h2 class="h5"><i class="bi bi-exclamation-octagon-fill"></i> Alerta de alergia</h2>{{ alerta }}
+  <div class="mt-2 small">Revise a prescrição. Para dispensar mesmo assim, marque a confirmação abaixo e envie novamente.</div></div>
+{% endif %}
+<form method="post" class="card" id="form-dispensacao"><div class="card-body row g-3">
+  <div class="col-md-5"><label class="form-label obrigatorio">Paciente</label>
+    <select class="form-select" name="paciente_id" id="paciente" required><option value="">Selecione...</option>
+      {% for p in pacientes %}<option value="{{ p.id }}" data-alergias="{{ p.alergias or '' }}" data-plano="{{ p.plano_saude or '' }}" {% if form.paciente_id == p.id|string %}selected{% endif %}>{{ p.nome }}{% if p.cpf %} — {{ p.cpf }}{% endif %}</option>{% endfor %}
+    </select>
+    <div class="form-text" id="info-paciente"></div></div>
+  <div class="col-md-4"><label class="form-label">Médico prescritor</label>
+    <select class="form-select" name="medico_id"><option value="">—</option>
+      {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select><div class="form-text">Obrigatório para itens de controle especial.</div></div>
+  <div class="col-md-3"><label class="form-label">Nº da prescrição</label><input class="form-control" name="prescricao" value="{{ form.prescricao }}"></div>
+  <div class="col-md-4"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(locais, 'origem_id', form.origem_id) }}</div>
+  <div class="col-md-4"><label class="form-label obrigatorio">Local de dispensação</label>{{ select_local(locais, 'destino_id', form.destino_id) }}</div>
+  <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" name="responsavel" value="{{ form.responsavel }}"></div>
+
+  <div class="col-12"><h2 class="h6 secao-form">Itens</h2>
+    <table class="table table-sm align-middle" id="itens">
+      <thead><tr><th style="width:65%">Medicamento / material</th><th>Quantidade</th><th></th></tr></thead>
+      <tbody>
+      {% set produtos_form = form.getlist('item_produto') if form else [] %}
+      {% set qtds_form = form.getlist('item_quantidade') if form else [] %}
+      {% for i in range([produtos_form|length, 1]|max) %}
+        <tr class="item">
+          <td>{{ select_produto(produtos, 'item_produto', produtos_form[i] if produtos_form else None, obrigatorio=False) }}<div class="small aviso"></div></td>
+          <td><input class="form-control" name="item_quantidade" inputmode="decimal" value="{{ qtds_form[i] if qtds_form else '' }}"></td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger remover"><i class="bi bi-x-lg"></i></button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="adicionar"><i class="bi bi-plus"></i> Adicionar item</button>
+  </div>
+  <div class="col-12"><label class="form-label">Observação</label><textarea class="form-control" name="observacao" rows="2">{{ form.observacao }}</textarea></div>
+  {% if alerta %}
+  <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="confirmar_alergia" id="confirmar_alergia">
+    <label class="form-check-label text-danger fw-semibold" for="confirmar_alergia">Estou ciente do alerta de alergia e confirmo a dispensação conforme prescrição médica.</label></div></div>
+  {% endif %}
+</div><div class="card-footer text-end"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Registrar dispensação</button></div></form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const tabela = document.querySelector('#itens tbody');
+  const paciente = document.getElementById('paciente');
+  const urlAlergias = "{{ url_for('estoque.checar_alergias') }}";
+
+  function infoPaciente() {
+    const op = paciente.selectedOptions[0];
+    const alergias = op && op.dataset.alergias;
+    document.getElementById('info-paciente').innerHTML = alergias
+      ? '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alergias: ' + alergias + '</span>'
+      : (op && op.value ? 'Sem alergias registradas.' : '');
+  }
+
+  async function verificar(linha) {
+    const produto = linha.querySelector('select').value;
+    const aviso = linha.querySelector('.aviso');
+    aviso.innerHTML = '';
+    if (!produto || !paciente.value) return;
+    const resp = await fetch(urlAlergias + '?paciente_id=' + paciente.value + '&produto_id=' + produto);
+    const dados = await resp.json();
+    const partes = [];
+    if (dados.conflitos.length) partes.push('<span class="text-danger fw-semibold"><i class="bi bi-exclamation-octagon-fill"></i> Conflito com alergia: ' + dados.conflitos.join(', ') + '</span>');
+    if (dados.controlado) partes.push('<span class="text-warning-emphasis"><i class="bi bi-shield-lock"></i> Controle especial (' + dados.controlado + ')</span>');
+    const origem = document.querySelector('[name=origem_id]').value;
+    if (origem && dados.saldos) partes.push('<span class="text-muted">Saldo na origem: ' + dados.saldos[origem] + '</span>');
+    aviso.innerHTML = partes.join(' · ');
+  }
+
+  function verificarTodos() { tabela.querySelectorAll('tr.item').forEach(verificar); }
+
+  tabela.addEventListener('change', e => { if (e.target.tagName === 'SELECT') verificar(e.target.closest('tr')); });
+  tabela.addEventListener('click', e => {
+    const botao = e.target.closest('.remover');
+    if (!botao) return;
+    if (tabela.querySelectorAll('tr.item').length > 1) botao.closest('tr').remove();
+    else botao.closest('tr').querySelectorAll('select, input').forEach(el => el.value = '');
+  });
+  document.getElementById('adicionar').addEventListener('click', () => {
+    const nova = tabela.querySelector('tr.item').cloneNode(true);
+    nova.querySelectorAll('select, input').forEach(el => el.value = '');
+    nova.querySelector('.aviso').innerHTML = '';
+    tabela.appendChild(nova);
+  });
+  paciente.addEventListener('change', () => { infoPaciente(); verificarTodos(); });
+  document.querySelector('[name=origem_id]').addEventListener('change', verificarTodos);
+  infoPaciente(); verificarTodos();
+})();
+</script>
+{% endblock %}

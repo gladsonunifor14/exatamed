@@ -1,0 +1,51 @@
+{% macro select_produto(produtos, nome='produto_id', selecionado=None, obrigatorio=True) %}
+<select class="form-select" name="{{ nome }}" {% if obrigatorio %}required{% endif %}>
+  <option value="">Selecione...</option>
+  {% for p in produtos %}
+  <option value="{{ p.id }}" {% if selecionado|string == p.id|string %}selected{% endif %}>{{ p }}{% if p.principio_ativo %} [{{ p.principio_ativo }}]{% endif %}{% if p.controle_especial %} ({{ p.controle_especial }}){% endif %}</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro select_local(locais, nome, selecionado=None, obrigatorio=True, vazio='Selecione...') %}
+<select class="form-select" name="{{ nome }}" {% if obrigatorio %}required{% endif %}>
+  <option value="">{{ vazio }}</option>
+  {% for l in locais %}
+  <option value="{{ l.id }}" {% if selecionado|string == l.id|string %}selected{% endif %}>{{ l.nome }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro tabela(t) %}
+<div class="card mb-4">
+  <div class="card-header fw-semibold">{{ t.titulo }}</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+      <thead class="table-light"><tr>
+        {% for c in t.colunas %}<th class="{% if c.formato in ('numero','moeda') %}text-end{% endif %}">{{ c.titulo }}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for linha in t.linhas %}
+        <tr class="{{ t.destaques.get(loop.index0, '') }}">
+          {% for v in linha %}{{ celula(v, t.colunas[loop.index0].formato) }}{% endfor %}
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ t.colunas|length }}" class="text-center text-muted py-3">Nenhum registro no período.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if t.rodape and t.linhas %}
+      <tfoot class="table-light fw-semibold"><tr>
+        {% for v in t.rodape %}{{ celula(v, t.colunas[loop.index0].formato) }}{% endfor %}
+      </tr></tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro celula(v, formato) %}
+{% if formato == 'moeda' and v is number %}<td class="text-end">{{ v|moeda }}</td>
+{% elif formato == 'numero' %}<td class="text-end">{{ v|numero }}</td>
+{% elif formato == 'data' %}<td>{{ v|data }}</td>
+{% else %}<td>{{ v }}</td>{% endif %}
+{% endmacro %}

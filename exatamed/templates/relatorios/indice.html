@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Relatórios{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3"><i class="bi bi-graph-up"></i> Análises e relatórios</h1>
+{% set descricoes = {
+  'consumo_diario': 'Custo e quantidade consumidos por dia (dispensações e saídas avulsas), com média diária por produto.',
+  'resumo_dispensacao': 'Número de dispensações, pacientes atendidos e custo agrupados por data, com a lista detalhada.',
+  'consumo_local': 'Consumo por leito, sala ou setor de destino, com participação no custo total e detalhe por produto.',
+  'consumo_paciente': 'Custo e itens dispensados por paciente; selecione um paciente para ver o detalhamento.',
+  'pedido_compra': 'Saldo utilizável versus estoques mínimo e máximo, consumo médio diário, cobertura e sugestão de compra.',
+  'inventario': 'Posição do estoque por lote e local, valorizada pelo custo PEPS de cada camada, com alerta de validade.',
+} %}
+{% set icones = {'consumo_diario': 'calendar3', 'resumo_dispensacao': 'prescription2', 'consumo_local': 'geo-alt', 'consumo_paciente': 'person-lines-fill', 'pedido_compra': 'cart-plus', 'inventario': 'clipboard-data'} %}
+<div class="row g-3">
+  {% for chave, (titulo, _) in relatorios.items() %}
+  <div class="col-md-6 col-xl-4"><a class="card h-100 text-decoration-none text-reset" href="{{ url_for('relatorios.exibir', chave=chave) }}"><div class="card-body">
+    <h2 class="h5"><i class="bi bi-{{ icones[chave] }} text-success"></i> {{ loop.index }}. {{ titulo }}</h2>
+    <p class="text-muted mb-0">{{ descricoes[chave] }}</p>
+  </div></a></div>
+  {% endfor %}
+</div>
+{% endblock %}

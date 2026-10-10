@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Dispensação {{ d.id }}{% endblock %}
+{% block conteudo %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Dispensação nº {{ d.id }}</h1>
+  <div class="d-print-none"><button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+  <a class="btn btn-exata" href="{{ url_for('estoque.dispensacao') }}">Nova dispensação</a></div>
+</div>
+<div class="card mb-3"><div class="card-body row g-2">
+  <div class="col-md-4"><strong>Data:</strong> {{ d.data|data('%d/%m/%Y %H:%M') }}</div>
+  <div class="col-md-4"><strong>Paciente:</strong> {{ d.paciente.nome }}{% if d.paciente.idade is not none %} ({{ d.paciente.idade }} anos){% endif %}</div>
+  <div class="col-md-4"><strong>Cartão SUS / plano:</strong> {{ d.paciente.cartao_sus or '—' }} / {{ d.paciente.plano_saude or 'SUS' }}</div>
+  <div class="col-md-4"><strong>Médico:</strong> {{ d.medico or '—' }}</div>
+  <div class="col-md-4"><strong>Prescrição:</strong> {{ d.prescricao or '—' }}</div>
+  <div class="col-md-4"><strong>Responsável:</strong> {{ d.responsavel or '—' }}</div>
+  <div class="col-md-4"><strong>Origem:</strong> {{ d.origem }}</div>
+  <div class="col-md-4"><strong>Local de dispensação:</strong> {{ d.destino }}</div>
+  <div class="col-md-4"><strong>Alergias:</strong> <span class="{{ 'text-danger' if d.paciente.alergias }}">{{ d.paciente.alergias or 'Nenhuma registrada' }}</span></div>
+  {% if d.observacao %}<div class="col-12"><strong>Observação:</strong> {{ d.observacao }}</div>{% endif %}
+</div></div>
+<div class="card"><div class="table-responsive"><table class="table mb-0">
+  <thead class="table-light"><tr><th>Produto</th><th>Controle</th><th>Lote</th><th>Validade</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit. (PEPS)</th><th class="text-end">Total</th></tr></thead>
+  <tbody>{% for m in d.movimentacoes %}
+    <tr><td>{{ m.produto }}</td><td>{{ m.produto.controle_especial or '' }}</td><td>{{ m.lote.numero_lote }}</td><td>{{ m.lote.validade|data }}</td>
+    <td class="text-end">{{ (-m.quantidade)|numero }} {{ m.produto.unidade_medida }}</td><td class="text-end">{{ m.custo_unitario|moeda }}</td><td class="text-end">{{ m.custo_total|moeda }}</td></tr>
+  {% endfor %}</tbody>
+  <tfoot class="fw-semibold"><tr><td colspan="6">Total</td><td class="text-end">{{ d.custo_total|moeda }}</td></tr></tfoot>
+</table></div></div>
+{% endblock %}
