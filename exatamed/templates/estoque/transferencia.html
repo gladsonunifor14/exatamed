@@ -6,7 +6,7 @@
 <form method="post" class="card"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label obrigatorio">Medicamento / material</label>{{ select_produto(produtos, selecionado=request.form.produto_id) }}</div>
   <div class="col-md-3"><label class="form-label obrigatorio">Quantidade</label><input class="form-control" name="quantidade" inputmode="decimal" required></div>
-  <div class="col-md-3"><label class="form-label">Documento</label><input class="form-control" name="documento"></div>
+  <div class="col-md-3"><label class="form-label">Documento</label><input class="form-control" name="documento" maxlength="100"></div>
   <div class="col-md-6"><label class="form-label obrigatorio">Origem</label>{{ select_local(locais, 'origem_id', request.form.origem_id) }}</div>
   <div class="col-md-6"><label class="form-label obrigatorio">Destino</label>{{ select_local(locais, 'destino_id', request.form.destino_id) }}</div>
 </div><div class="card-footer text-end"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Transferir</button></div></form>

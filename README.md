@@ -24,6 +24,7 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - [Análises e relatórios](#análises-e-relatórios)
 - [Tecnologias](#tecnologias)
 - [Instalação e execução](#instalação-e-execução)
+- [Publicação na web (Render)](#publicação-na-web-render)
 - [Testes](#testes)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Roteiro](#roteiro)
@@ -132,7 +133,8 @@ física de cada lote de um local; as diferenças geram movimentações de *ajust
 
 - [Python](https://www.python.org/) 3.10+
 - [Flask](https://flask.palletsprojects.com/) 3 e [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/)
-- [SQLite](https://www.sqlite.org/) por padrão (qualquer banco suportado pelo SQLAlchemy, como PostgreSQL, pode ser usado)
+- [SQLite](https://www.sqlite.org/) no uso local e [PostgreSQL](https://www.postgresql.org/) na publicação (driver psycopg 3)
+- [gunicorn](https://gunicorn.org/) como servidor de produção
 - [Bootstrap](https://getbootstrap.com/) 5 e Bootstrap Icons (via CDN)
 - [pytest](https://pytest.org/) para os testes
 
@@ -165,13 +167,50 @@ Acesse <http://127.0.0.1:5000>. O banco de dados é criado automaticamente em
 | Variável de ambiente | Descrição | Padrão |
 |----------------------|-----------|--------|
 | `EXATAMED_SECRET_KEY` | Chave secreta do Flask (sessões e mensagens). **Defina em produção.** | `dev-troque-esta-chave` |
-| `EXATAMED_DATABASE_URL` | URL do banco no formato SQLAlchemy, ex.: `postgresql://usuario:senha@host/exatamed` | SQLite em `instance/` |
+| `EXATAMED_DATABASE_URL` (ou `DATABASE_URL`) | URL do banco, ex.: `postgres://usuario:senha@host/exatamed`. URLs `postgres://` e `postgresql://` são convertidas automaticamente para o driver psycopg. | SQLite em `instance/` |
 
-Para produção, use um servidor WSGI, por exemplo:
+## Publicação na web (Render)
+
+O GitHub Pages publica apenas sites estáticos; o ExataMed precisa de um servidor Python e de um
+banco de dados. O repositório já traz o arquivo [`render.yaml`](render.yaml), que configura no
+[Render](https://render.com) o sistema web e um banco **PostgreSQL** automaticamente.
+
+> ⚠️ **Esta versão ainda não tem login.** Qualquer pessoa com o endereço poderá ver e alterar os
+> dados. Publique apenas com dados fictícios (demonstração) até a autenticação ser implementada —
+> dados de saúde são dados pessoais sensíveis pela LGPD.
+
+1. Mescle as alterações na branch `main` do GitHub.
+2. Crie uma conta em [render.com](https://render.com) entrando com sua conta do GitHub.
+3. No painel, clique em **New → Blueprint** e selecione o repositório `exatamed`.
+4. O Render lê o `render.yaml` e mostra o que será criado: o serviço web `exatamed` e o banco
+   `exatamed-db`. Clique em **Apply** (ou **Deploy Blueprint**).
+5. Aguarde a instalação. O sistema fica disponível em um endereço como
+   `https://exatamed.onrender.com`.
+
+A partir daí, **cada `push` na branch `main` publica a nova versão automaticamente**.
+
+O que o `render.yaml` configura:
+
+- instalação com `pip install -r requirements.txt` e execução com o servidor de produção **gunicorn**;
+- banco PostgreSQL ligado ao sistema pela variável `EXATAMED_DATABASE_URL`;
+- `EXATAMED_SECRET_KEY` gerada aleatoriamente pelo Render;
+- verificação de funcionamento no endereço `/saude`.
+
+**Observações sobre o plano gratuito do Render** (confira as condições atuais no site):
+
+- o serviço web "dorme" após um período sem acesso, e a primeira página seguinte demora alguns
+  segundos para abrir;
+- o banco PostgreSQL gratuito tem prazo de validade; para uso contínuo, mude para um plano pago
+  ou faça cópias de segurança periódicas.
+
+Para carregar os dados de demonstração no servidor publicado, abra o serviço no painel do Render,
+vá em **Shell** (disponível nos planos pagos) e rode `flask --app exatamed demo`.
+
+Em outros serviços (Railway, Fly.io, servidor próprio), defina `EXATAMED_SECRET_KEY` e
+`EXATAMED_DATABASE_URL` e inicie com:
 
 ```bash
-pip install gunicorn
-gunicorn "exatamed:create_app()"
+gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
 ```
 
 ## Testes
@@ -202,6 +241,7 @@ exatamed/
 │   └── static/          # estilos
 ├── tests/               # testes automatizados (pytest)
 ├── docs/img/            # capturas de tela
+├── render.yaml          # configuração de publicação no Render
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── run.py

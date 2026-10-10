@@ -1,0 +1,26 @@
+# Blueprint do Render: cria o sistema web e o banco PostgreSQL automaticamente.
+# No painel do Render: New > Blueprint > selecione este repositório.
+services:
+  - type: web
+    name: exatamed
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
+    healthCheckPath: /saude
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: EXATAMED_SECRET_KEY
+        generateValue: true
+      - key: EXATAMED_DATABASE_URL
+        fromDatabase:
+          name: exatamed-db
+          property: connectionString
+
+databases:
+  - name: exatamed-db
+    plan: free
+    databaseName: exatamed
+    user: exatamed

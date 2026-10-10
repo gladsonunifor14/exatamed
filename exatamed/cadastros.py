@@ -75,6 +75,9 @@ class Cadastro:
     pode_excluir: callable = None
     links: list = field(default_factory=list)  # (rótulo, endpoint, nome do parâmetro)
 
+    def limite(self, atributo):
+        return tamanho_maximo(self.modelo, atributo)
+
 
 def _validar_documentos(obj, erros):
     if getattr(obj, "cpf", None):
@@ -277,6 +280,12 @@ def _converter(campo, bruto):
     return bruto
 
 
+def tamanho_maximo(modelo, atributo):
+    """Tamanho máximo da coluna de texto (o PostgreSQL rejeita valores maiores)."""
+    coluna = modelo.__table__.columns.get(atributo)
+    return getattr(coluna.type, "length", None) if coluna is not None else None
+
+
 def preencher(cadastro, obj, form):
     erros = []
     for campo in cadastro.campos:
@@ -287,6 +296,9 @@ def preencher(cadastro, obj, form):
             continue
         if campo.obrigatorio and valor in (None, ""):
             erros.append(f"O campo '{campo.rotulo}' é obrigatório.")
+        limite = tamanho_maximo(cadastro.modelo, campo.nome)
+        if isinstance(valor, str) and limite and len(valor) > limite:
+            erros.append(f"O campo '{campo.rotulo}' aceita no máximo {limite} caracteres.")
         setattr(obj, campo.nome, valor)
     if not erros and cadastro.validar:
         cadastro.validar(obj, erros)

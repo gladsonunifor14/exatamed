@@ -6,8 +6,8 @@
 <form method="post" class="card"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label obrigatorio">Medicamento / material</label>{{ select_produto(produtos, selecionado=request.form.produto_id) }}</div>
   <div class="col-md-3"><label class="form-label obrigatorio">Localização</label>{{ select_local(locais, 'localizacao_id', request.form.localizacao_id) }}</div>
-  <div class="col-md-3"><label class="form-label">Documento (NF / empenho)</label><input class="form-control" name="documento" value="{{ request.form.documento }}"></div>
-  <div class="col-md-3"><label class="form-label obrigatorio">Lote</label><input class="form-control" name="numero_lote" required value="{{ request.form.numero_lote }}"></div>
+  <div class="col-md-3"><label class="form-label">Documento (NF / empenho)</label><input class="form-control" name="documento" maxlength="100" value="{{ request.form.documento }}"></div>
+  <div class="col-md-3"><label class="form-label obrigatorio">Lote</label><input class="form-control" name="numero_lote" maxlength="50" required value="{{ request.form.numero_lote }}"></div>
   <div class="col-md-3"><label class="form-label obrigatorio">Validade</label><input class="form-control" type="date" name="validade" min="{{ hoje.isoformat() }}" required value="{{ request.form.validade }}"></div>
   <div class="col-md-3"><label class="form-label obrigatorio">Quantidade</label><input class="form-control" name="quantidade" inputmode="decimal" required value="{{ request.form.quantidade }}"></div>
   <div class="col-md-3"><label class="form-label obrigatorio">Custo unitário (R$)</label><input class="form-control" name="custo_unitario" inputmode="decimal" required value="{{ request.form.custo_unitario }}"></div>

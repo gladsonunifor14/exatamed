@@ -16,10 +16,10 @@
     <select class="form-select" name="medico_id"><option value="">—</option>
       {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
     </select><div class="form-text">Obrigatório para itens de controle especial.</div></div>
-  <div class="col-md-3"><label class="form-label">Nº da prescrição</label><input class="form-control" name="prescricao" value="{{ form.prescricao }}"></div>
+  <div class="col-md-3"><label class="form-label">Nº da prescrição</label><input class="form-control" name="prescricao" maxlength="50" value="{{ form.prescricao }}"></div>
   <div class="col-md-4"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(locais, 'origem_id', form.origem_id) }}</div>
   <div class="col-md-4"><label class="form-label obrigatorio">Local de dispensação</label>{{ select_local(locais, 'destino_id', form.destino_id) }}</div>
-  <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" name="responsavel" value="{{ form.responsavel }}"></div>
+  <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" name="responsavel" maxlength="100" value="{{ form.responsavel }}"></div>
 
   <div class="col-12"><h2 class="h6 secao-form">Itens</h2>
     <table class="table table-sm align-middle" id="itens">

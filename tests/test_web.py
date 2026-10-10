@@ -59,3 +59,13 @@ def test_demo_nao_duplica_dados(app):
     assert popular() is True
     assert popular() is False
     assert Paciente.query.count() == 3
+
+
+def test_texto_maior_que_o_campo_e_recusado(client, app):
+    # O PostgreSQL rejeita textos maiores que a coluna; o sistema deve avisar em vez de falhar.
+    dados = {"nome": "Teste", "telefone": "9" * 21}
+    resposta = client.post("/cadastros/pacientes/novo", data=dados)
+    assert resposta.status_code == 422
+    assert "no máximo 20 caracteres" in resposta.get_data(as_text=True)
+    resposta = client.post("/estoque/entrada", data={"produto_id": "", "documento": "x" * 101})
+    assert resposta.status_code == 200

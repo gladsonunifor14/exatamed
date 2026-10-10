@@ -23,14 +23,29 @@ def garantir_locais_principais():
     db.session.commit()
 
 
+def url_banco(instance_path):
+    """URL do banco a partir do ambiente, normalizada para o driver psycopg 3.
+
+    Render, Railway e Heroku fornecem a URL no formato `postgres://...`, que o
+    SQLAlchemy não aceita. Sem variável definida, usa SQLite na pasta `instance/`.
+    """
+    url = os.environ.get("EXATAMED_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not url:
+        return f"sqlite:///{os.path.join(instance_path, 'exatamed.db')}"
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg://" + url[len(prefixo):]
+    return url
+
+
 def create_app(config=None):
     app = Flask(__name__, instance_relative_config=True)
     os.makedirs(app.instance_path, exist_ok=True)
     app.config.update(
         SECRET_KEY=os.environ.get("EXATAMED_SECRET_KEY", "dev-troque-esta-chave"),
-        SQLALCHEMY_DATABASE_URI=os.environ.get(
-            "EXATAMED_DATABASE_URL", f"sqlite:///{os.path.join(app.instance_path, 'exatamed.db')}"
-        ),
+        SQLALCHEMY_DATABASE_URI=url_banco(app.instance_path),
+        # Reabre conexões que o PostgreSQL gerenciado encerrou por inatividade.
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True},
     )
     if config:
         app.config.update(config)
@@ -42,6 +57,12 @@ def create_app(config=None):
     app.register_blueprint(views.bp_estoque)
     app.register_blueprint(views.bp_relatorios)
     app.register_blueprint(cadastros.bp)
+
+    @app.route("/saude")
+    def saude():
+        """Verificação de funcionamento usada pelo serviço de hospedagem."""
+        db.session.execute(db.text("SELECT 1"))
+        return {"status": "ok", "versao": __version__}
 
     @app.template_filter("moeda")
     def moeda(valor):
@@ -72,6 +93,9 @@ def create_app(config=None):
     with app.app_context():
         db.create_all()
         garantir_locais_principais()
+        # Fecha as conexões antes de o gunicorn (--preload) criar os processos.
+        if db.engine.dialect.name != "sqlite":
+            db.engine.dispose()
 
     @app.cli.command("demo")
     def demo():
