@@ -5,7 +5,8 @@
   <h1 class="h3 mb-0">{{ cadastro.titulo }}</h1>
   <div class="d-flex gap-2">
     <form class="d-flex" method="get"><input class="form-control" name="q" value="{{ termo }}" placeholder="Pesquisar..."><button class="btn btn-outline-secondary ms-1"><i class="bi bi-search"></i></button></form>
-    <a class="btn btn-exata" href="{{ url_for('cadastros.editar', chave=cadastro.chave) }}"><i class="bi bi-plus-lg"></i> Novo</a>
+    {% set pode_editar = current_user.pode(cadastro.perfil_edicao) %}
+    {% if pode_editar %}<a class="btn btn-exata" href="{{ url_for('cadastros.editar', chave=cadastro.chave) }}"><i class="bi bi-plus-lg"></i> Novo</a>{% endif %}
   </div>
 </div>
 <div class="card">
@@ -20,8 +21,8 @@
           {% endfor %}
           <td class="text-end text-nowrap">
             {% for rotulo, endpoint, param in cadastro.links %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for(endpoint, **{param: obj.id}) }}">{{ rotulo }}</a>{% endfor %}
-            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}"><i class="bi bi-pencil"></i></a>
-            <form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" onsubmit="return confirm('Excluir este registro?')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
+            {% if current_user.pode(cadastro.perfil_edicao) %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
+            {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" onsubmit="return confirm('Excluir este registro?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>{% endif %}
           </td>
         </tr>
       {% else %}

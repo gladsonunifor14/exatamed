@@ -12,8 +12,16 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
+      - key: EXATAMED_ENV
+        value: production
       - key: EXATAMED_SECRET_KEY
         generateValue: true
+      # Primeiro administrador, criado na primeira inicialização (se não houver usuários).
+      # O Render pede a senha ao aplicar o Blueprint (mínimo de 8 caracteres).
+      - key: EXATAMED_ADMIN_LOGIN
+        value: admin
+      - key: EXATAMED_ADMIN_SENHA
+        sync: false
       - key: EXATAMED_DATABASE_URL
         fromDatabase:
           name: exatamed-db

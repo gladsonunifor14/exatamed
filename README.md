@@ -22,6 +22,7 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - [Controle de estoque e método PEPS](#controle-de-estoque-e-método-peps)
 - [Dispensação e segurança do paciente](#dispensação-e-segurança-do-paciente)
 - [Análises e relatórios](#análises-e-relatórios)
+- [Usuários, login e perfis de acesso](#usuários-login-e-perfis-de-acesso)
 - [Tecnologias](#tecnologias)
 - [Instalação e execução](#instalação-e-execução)
 - [Publicação na web (Render)](#publicação-na-web-render)
@@ -44,7 +45,9 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - **Contagem de inventário** com ajustes rastreáveis.
 - Painel com indicadores, itens a repor e lotes vencidos ou próximos do vencimento.
 - Seis relatórios gerenciais, com impressão e **exportação em CSV** (compatível com Excel).
-- Histórico imutável de movimentações para auditoria.
+- Histórico imutável de movimentações para auditoria, com o **usuário** responsável por cada uma.
+- **Login com perfis de acesso** (auxiliar, farmacêutico, administrador), bloqueio após tentativas
+  erradas e senha provisória no primeiro acesso.
 
 ## Cadastros
 
@@ -129,6 +132,35 @@ estoque.
 A **contagem de inventário** (menu *Estoque → Contagem de inventário*) permite lançar a contagem
 física de cada lote de um local; as diferenças geram movimentações de *ajuste de inventário*.
 
+## Usuários, login e perfis de acesso
+
+Todo o sistema exige login. Cada movimentação de estoque e cada dispensação registra
+automaticamente o usuário que a fez, e o comprovante de dispensação mostra o responsável.
+
+| Perfil | Pode |
+|--------|------|
+| **Auxiliar de farmácia** | Consultar estoque e relatórios; cadastrar pacientes e médicos; registrar entradas, transferências e dispensações de itens **sem** controle especial. |
+| **Farmacêutico(a)** | Tudo do auxiliar, mais: dispensar itens de **controle especial**, **liberar dispensação com alerta de alergia**, saídas avulsas, contagem de inventário, cadastrar medicamentos e localizações e excluir registros. |
+| **Administrador(a)** | Tudo do farmacêutico, mais: cadastrar usuários, definir perfis, redefinir senhas e desbloquear contas (menu do usuário → *Usuários*). |
+
+Segurança:
+
+- senhas guardadas com *hash* (nunca em texto), mínimo de 8 caracteres com letras e números;
+- após **5 tentativas erradas**, o usuário fica bloqueado por 15 minutos (o administrador pode desbloquear);
+- senha definida pelo administrador é **provisória**: o usuário precisa trocá-la no primeiro acesso;
+- sessão expira em 8 horas; proteção contra CSRF em todos os formulários;
+- em produção (`EXATAMED_ENV=production`): cookies apenas por HTTPS, HSTS e cabeçalhos de segurança.
+
+### Primeiro acesso
+
+- **Com dados de demonstração:** `flask --app exatamed demo` cria também os usuários
+  `admin` / `admin1234`, `farmaceutico` / `farma1234` e `auxiliar` / `auxiliar1234`.
+  Use-os apenas para testes.
+- **Para uso real:** crie o administrador com `flask --app exatamed criar-admin` (o comando pede
+  login, nome e senha) ou defina as variáveis `EXATAMED_ADMIN_LOGIN` e `EXATAMED_ADMIN_SENHA` —
+  o administrador é criado na inicialização, se ainda não houver usuários. Depois, entre como
+  administrador e cadastre os demais usuários.
+
 ## Tecnologias
 
 - [Python](https://www.python.org/) 3.10+
@@ -136,6 +168,7 @@ física de cada lote de um local; as diferenças geram movimentações de *ajust
 - [SQLite](https://www.sqlite.org/) no uso local e [PostgreSQL](https://www.postgresql.org/) na publicação (driver psycopg 3)
 - [gunicorn](https://gunicorn.org/) como servidor de produção
 - [Bootstrap](https://getbootstrap.com/) 5 e Bootstrap Icons (via CDN)
+- [Flask-Login](https://flask-login.readthedocs.io/) e [Flask-WTF](https://flask-wtf.readthedocs.io/) (login e proteção CSRF)
 - [pytest](https://pytest.org/) para os testes
 
 ## Instalação e execução
@@ -152,21 +185,28 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # 3. Instale as dependências
 pip install -r requirements.txt
 
-# 4. (Opcional) Carregue dados de demonstração
+# 4. Carregue dados e usuários de demonstração...
 flask --app exatamed demo
+#    ...ou, para uso real, crie apenas o administrador:
+# flask --app exatamed criar-admin
 
 # 5. Inicie o servidor
 flask --app exatamed run          # ou: python run.py
 ```
 
-Acesse <http://127.0.0.1:5000>. O banco de dados é criado automaticamente em
-`instance/exatamed.db`, já com as localizações *Farmácia SUS* e *Farmácia Particular*.
+Acesse <http://127.0.0.1:5000> e entre com um dos usuários (com os dados de demonstração:
+`admin` / `admin1234`). O banco de dados é criado automaticamente em `instance/exatamed.db`,
+já com as localizações *Farmácia SUS* e *Farmácia Particular*. Bancos criados por versões
+anteriores são atualizados automaticamente na inicialização.
 
 ### Configuração
 
 | Variável de ambiente | Descrição | Padrão |
 |----------------------|-----------|--------|
-| `EXATAMED_SECRET_KEY` | Chave secreta do Flask (sessões e mensagens). **Defina em produção.** | `dev-troque-esta-chave` |
+| `EXATAMED_SECRET_KEY` | Chave secreta do Flask (sessões e mensagens). **Obrigatória em produção.** | `dev-troque-esta-chave` |
+| `EXATAMED_ENV` | `production` ativa cookies seguros (HTTPS), HSTS e exige a chave secreta. | — |
+| `EXATAMED_ADMIN_LOGIN` / `EXATAMED_ADMIN_SENHA` | Criam o primeiro administrador, se não houver usuários. | — |
+| `EXATAMED_CARREGAR_DEMO` | `1` carrega os dados de demonstração na inicialização, se o banco estiver vazio (sem usuários de demonstração). Use só em ambientes de teste. | — |
 | `EXATAMED_DATABASE_URL` (ou `DATABASE_URL`) | URL do banco, ex.: `postgres://usuario:senha@host/exatamed`. URLs `postgres://` e `postgresql://` são convertidas automaticamente para o driver psycopg. | SQLite em `instance/` |
 
 ## Publicação na web (Render)
@@ -175,17 +215,22 @@ O GitHub Pages publica apenas sites estáticos; o ExataMed precisa de um servido
 banco de dados. O repositório já traz o arquivo [`render.yaml`](render.yaml), que configura no
 [Render](https://render.com) o sistema web e um banco **PostgreSQL** automaticamente.
 
-> ⚠️ **Esta versão ainda não tem login.** Qualquer pessoa com o endereço poderá ver e alterar os
-> dados. Publique apenas com dados fictícios (demonstração) até a autenticação ser implementada —
-> dados de saúde são dados pessoais sensíveis pela LGPD.
+> ⚠️ Dados de saúde são dados pessoais sensíveis pela LGPD. Use senhas fortes, cadastre cada
+> pessoa com seu próprio usuário e desative os usuários de quem deixar a equipe.
 
 1. Mescle as alterações na branch `main` do GitHub.
 2. Crie uma conta em [render.com](https://render.com) entrando com sua conta do GitHub.
 3. No painel, clique em **New → Blueprint** e selecione o repositório `exatamed`.
-4. O Render lê o `render.yaml` e mostra o que será criado: o serviço web `exatamed` e o banco
-   `exatamed-db`. Clique em **Apply** (ou **Deploy Blueprint**).
+4. O Render lê o `render.yaml`, mostra o que será criado (o serviço web `exatamed` e o banco
+   `exatamed-db`) e pede o valor de **`EXATAMED_ADMIN_SENHA`**: digite a senha do primeiro
+   administrador (mínimo de 8 caracteres). Clique em **Apply** (ou **Deploy Blueprint**).
 5. Aguarde a instalação. O sistema fica disponível em um endereço como
-   `https://exatamed.onrender.com`.
+   `https://exatamed.onrender.com`. Entre com o usuário **`admin`** e a senha escolhida.
+
+**Se você já publicou uma versão anterior (sem login):** antes de mesclar esta versão, abra o
+serviço `exatamed` no Render, vá em **Environment** e adicione `EXATAMED_ADMIN_LOGIN` (ex.: `admin`),
+`EXATAMED_ADMIN_SENHA` (sua senha) e `EXATAMED_ENV` = `production`. Sem um administrador,
+ninguém conseguirá entrar no sistema. Os dados já cadastrados são preservados.
 
 A partir daí, **cada `push` na branch `main` publica a nova versão automaticamente**.
 
@@ -193,7 +238,8 @@ O que o `render.yaml` configura:
 
 - instalação com `pip install -r requirements.txt` e execução com o servidor de produção **gunicorn**;
 - banco PostgreSQL ligado ao sistema pela variável `EXATAMED_DATABASE_URL`;
-- `EXATAMED_SECRET_KEY` gerada aleatoriamente pelo Render;
+- `EXATAMED_SECRET_KEY` gerada aleatoriamente pelo Render e modo de produção (`EXATAMED_ENV`);
+- criação do primeiro administrador (`EXATAMED_ADMIN_LOGIN` / `EXATAMED_ADMIN_SENHA`);
 - verificação de funcionamento no endereço `/saude`.
 
 **Observações sobre o plano gratuito do Render** (confira as condições atuais no site):
@@ -203,11 +249,13 @@ O que o `render.yaml` configura:
 - o banco PostgreSQL gratuito tem prazo de validade; para uso contínuo, mude para um plano pago
   ou faça cópias de segurança periódicas.
 
-Para carregar os dados de demonstração no servidor publicado, abra o serviço no painel do Render,
-vá em **Shell** (disponível nos planos pagos) e rode `flask --app exatamed demo`.
+Para uma publicação de **demonstração**, adicione a variável `EXATAMED_CARREGAR_DEMO` = `1` no
+serviço: os dados fictícios são carregados na próxima inicialização, se o banco estiver vazio.
+Não use essa opção num sistema com dados reais.
 
-Em outros serviços (Railway, Fly.io, servidor próprio), defina `EXATAMED_SECRET_KEY` e
-`EXATAMED_DATABASE_URL` e inicie com:
+Em outros serviços (Railway, Fly.io, servidor próprio), defina `EXATAMED_ENV=production`,
+`EXATAMED_SECRET_KEY`, `EXATAMED_DATABASE_URL`, `EXATAMED_ADMIN_LOGIN` e `EXATAMED_ADMIN_SENHA`
+e inicie com:
 
 ```bash
 gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
@@ -221,18 +269,20 @@ pytest
 ```
 
 Os testes cobrem a baixa PEPS, o bloqueio de lotes vencidos, as transferências, os alertas de
-alergia, o controle especial, os ajustes de inventário, os seis relatórios e a renderização de
-todas as telas.
+alergia, o controle especial, os ajustes de inventário, os seis relatórios, a renderização de
+todas as telas, o login (bloqueio, senha provisória, redirecionamento seguro, CSRF), as permissões
+de cada perfil e a atualização de bancos criados por versões anteriores.
 
 ## Estrutura do projeto
 
 ```
 exatamed/
 ├── exatamed/
-│   ├── __init__.py      # fábrica da aplicação, filtros e comando "demo"
-│   ├── models.py        # modelos: Paciente, Medico, Produto, Localizacao, Lote, Dispensacao, Movimentacao
+│   ├── __init__.py      # fábrica da aplicação, configuração e comandos "demo" e "criar-admin"
+│   ├── models.py        # modelos: Usuario, Paciente, Medico, Produto, Localizacao, Lote, Dispensacao, Movimentacao
 │   ├── estoque.py       # regras de negócio: entrada, baixa PEPS, transferência, dispensação, inventário
 │   ├── relatorios.py    # análises e relatórios
+│   ├── auth.py          # login, perfis de acesso e gestão de usuários
 │   ├── cadastros.py     # CRUD genérico dos cadastros e validações
 │   ├── validacao.py     # CPF, CEP e Cartão Nacional de Saúde
 │   ├── views.py         # telas de estoque, dispensação e relatórios
@@ -252,8 +302,9 @@ exatamed/
 
 Melhorias previstas para próximas versões:
 
-- [ ] Autenticação de usuários e perfis de acesso (farmacêutico, auxiliar, administrador)
-- [ ] Trilha de auditoria por usuário
+- [x] Autenticação de usuários e perfis de acesso (farmacêutico, auxiliar, administrador)
+- [x] Registro do usuário em cada movimentação
+- [ ] Recuperação de senha por e-mail
 - [ ] Escrituração de controlados e integração com o SNGPC/ANVISA
 - [ ] Devolução de itens não utilizados ao estoque
 - [ ] Leitura de código de barras / DataMatrix na entrada e na dispensação

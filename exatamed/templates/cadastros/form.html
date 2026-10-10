@@ -2,7 +2,7 @@
 {% block titulo %}{{ cadastro.titulo_singular }}{% endblock %}
 {% block conteudo %}
 <h1 class="h3 mb-3">{{ 'Editar' if obj.id else 'Novo(a)' }} {{ cadastro.titulo_singular|lower }}</h1>
-<form method="post" class="card"><div class="card-body">
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body">
   <div class="row g-3">
   {% for c in cadastro.campos %}
     {% if c.secao %}<div class="col-12"><h2 class="h6 secao-form">{{ c.secao }}</h2></div>{% endif %}

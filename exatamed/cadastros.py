@@ -4,10 +4,11 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask_login import current_user
 from sqlalchemy import or_
 
 from . import validacao
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, db
+from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
 
 bp = Blueprint("cadastros", __name__, url_prefix="/cadastros")
 
@@ -74,6 +75,7 @@ class Cadastro:
     validar: callable = None
     pode_excluir: callable = None
     links: list = field(default_factory=list)  # (rótulo, endpoint, nome do parâmetro)
+    perfil_edicao: str = Usuario.AUXILIAR  # perfil mínimo para incluir/alterar
 
     def limite(self, atributo):
         return tamanho_maximo(self.modelo, atributo)
@@ -241,6 +243,7 @@ CADASTROS = {
         ordem="nome_comercial",
         validar=validar_produto,
         pode_excluir=_bloqueio_produto,
+        perfil_edicao=Usuario.FARMACEUTICO,
         links=[("Lotes", "estoque.lotes", "produto_id")],
     ),
     "localizacoes": Cadastro(
@@ -254,6 +257,7 @@ CADASTROS = {
         busca=["nome", "descricao"],
         validar=validar_localizacao,
         pode_excluir=_bloqueio_localizacao,
+        perfil_edicao=Usuario.FARMACEUTICO,
     ),
 }
 
@@ -322,6 +326,8 @@ def listar(chave):
 @bp.route("/<chave>/<int:id>/editar", methods=["GET", "POST"])
 def editar(chave, id=None):
     cadastro = _cadastro(chave)
+    if not current_user.pode(cadastro.perfil_edicao):
+        abort(403)
     if id:
         obj = db.get_or_404(cadastro.modelo, id)
     else:
@@ -347,6 +353,8 @@ def editar(chave, id=None):
 @bp.route("/<chave>/<int:id>/excluir", methods=["POST"])
 def excluir(chave, id):
     cadastro = _cadastro(chave)
+    if not current_user.pode(Usuario.FARMACEUTICO):
+        abort(403)
     obj = db.get_or_404(cadastro.modelo, id)
     motivo = cadastro.pode_excluir(obj) if cadastro.pode_excluir else None
     if motivo:

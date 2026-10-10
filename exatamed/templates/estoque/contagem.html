@@ -8,7 +8,7 @@
 </form>
 {% if localizacao %}
 <p class="text-muted">Informe a quantidade contada fisicamente. Campos em branco não são alterados; diferenças geram movimentações de <em>ajuste de inventário</em> valorizadas pelo custo do lote.</p>
-<form method="post" class="card">
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="localizacao_id" value="{{ localizacao.id }}">
   <div class="table-responsive"><table class="table table-sm align-middle mb-0">
     <thead class="table-light"><tr><th>Produto</th><th>Lote</th><th>Validade</th><th class="text-end">Saldo no sistema</th><th style="width:160px">Contagem física</th></tr></thead>
