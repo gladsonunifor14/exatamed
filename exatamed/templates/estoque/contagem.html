@@ -22,7 +22,7 @@
   </table></div>
   {% if lotes %}
   <div class="card-footer d-flex gap-2 justify-content-end">
-    <input class="form-control w-auto" name="motivo" placeholder="Motivo (ex.: inventário mensal)">
+    <input class="form-control w-auto" name="motivo" maxlength="200" placeholder="Motivo (ex.: inventário mensal)">
     <button class="btn btn-exata" onclick="return confirm('Confirmar os ajustes de inventário?')"><i class="bi bi-check-lg"></i> Aplicar ajustes</button>
   </div>
   {% endif %}

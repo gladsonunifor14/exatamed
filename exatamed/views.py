@@ -32,6 +32,15 @@ def _numero(nome):
         raise EstoqueError("Informe uma quantidade numérica válida.")
 
 
+def _texto(nome, coluna, rotulo):
+    """Texto opcional do formulário, respeitando o tamanho da coluna no banco."""
+    valor = (request.form.get(nome) or "").strip()
+    limite = coluna.type.length
+    if limite and len(valor) > limite:
+        raise EstoqueError(f"O campo '{rotulo}' aceita no máximo {limite} caracteres.")
+    return valor or None
+
+
 def _obter(modelo, nome, obrigatorio=True, rotulo=None):
     valor = request.values.get(nome, type=int)
     obj = db.session.get(modelo, valor) if valor else None
@@ -101,9 +110,9 @@ def entrada():
         if validade < date.today():
             raise EstoqueError("Não é permitido dar entrada em lote vencido.")
         return estoque.registrar_entrada(
-            produto, local, request.form.get("numero_lote", ""), validade,
+            produto, local, _texto("numero_lote", Lote.numero_lote, "Lote") or "", validade,
             _numero("quantidade"), _numero("custo_unitario"),
-            documento=request.form.get("documento") or None,
+            documento=_texto("documento", Movimentacao.documento, "Documento"),
         )
     return _executar(operacao, lambda l: f"Entrada registrada: lote {l.numero_lote} de {l.produto}.",
                      "estoque/entrada.html")
@@ -115,8 +124,8 @@ def saida():
         produto = _obter(Produto, "produto_id", rotulo="o produto")
         local = _obter(Localizacao, "localizacao_id", rotulo="a localização")
         movs = estoque.registrar_saida(produto, local, _numero("quantidade"),
-                                       request.form.get("motivo", "").strip(),
-                                       documento=request.form.get("documento") or None)
+                                       _texto("motivo", Movimentacao.motivo, "Motivo"),
+                                       documento=_texto("documento", Movimentacao.documento, "Documento"))
         return sum(m.custo_total for m in movs)
     return _executar(operacao, lambda custo: f"Saída registrada. Custo PEPS: R$ {custo:,.2f}.",
                      "estoque/saida.html")
@@ -129,7 +138,7 @@ def transferencia():
         origem = _obter(Localizacao, "origem_id", rotulo="a origem")
         destino = _obter(Localizacao, "destino_id", rotulo="o destino")
         return estoque.transferir(produto, origem, destino, _numero("quantidade"),
-                                  documento=request.form.get("documento") or None)
+                                  documento=_texto("documento", Movimentacao.documento, "Documento"))
     return _executar(operacao, "Transferência registrada.", "estoque/transferencia.html")
 
 
@@ -157,9 +166,9 @@ def dispensacao():
                 _obter(Localizacao, "destino_id", rotulo="o local de dispensação"),
                 itens,
                 medico=_obter(Medico, "medico_id", obrigatorio=False),
-                prescricao=request.form.get("prescricao") or None,
+                prescricao=_texto("prescricao", Dispensacao.prescricao, "Nº da prescrição"),
                 observacao=request.form.get("observacao") or None,
-                responsavel=request.form.get("responsavel") or None,
+                responsavel=_texto("responsavel", Dispensacao.responsavel, "Responsável"),
                 confirmar_alergia=bool(request.form.get("confirmar_alergia")),
             )
             db.session.commit()
@@ -230,7 +239,7 @@ def contagem():
     """Contagem física: ajusta os saldos dos lotes de um local."""
     localizacao = _obter(Localizacao, "localizacao_id", obrigatorio=False)
     if request.method == "POST" and localizacao:
-        motivo = request.form.get("motivo") or "Ajuste de inventário"
+        motivo = (request.form.get("motivo") or "Ajuste de inventário").strip()[:Movimentacao.motivo.type.length]
         ajustes = 0
         try:
             for lote in Lote.query.filter_by(localizacao_id=localizacao.id).filter(Lote.saldo > 0):

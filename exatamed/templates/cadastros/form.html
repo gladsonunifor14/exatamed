@@ -24,7 +24,7 @@
         </select>
       {% else %}
         <input class="form-control" id="{{ c.nome }}" name="{{ c.nome }}" value="{{ v }}"
-          type="{{ 'date' if c.tipo == 'date' else 'text' }}" {% if c.tipo == 'number' %}inputmode="decimal"{% endif %} {{ 'required' if c.obrigatorio }}>
+          type="{{ 'date' if c.tipo == 'date' else 'text' }}" {% if c.tipo == 'text' and cadastro.limite(c.nome) %}maxlength="{{ cadastro.limite(c.nome) }}"{% endif %} {% if c.tipo == 'number' %}inputmode="decimal"{% endif %} {{ 'required' if c.obrigatorio }}>
       {% endif %}
       {% endif %}
       {% if c.ajuda %}<div class="form-text">{{ c.ajuda }}</div>{% endif %}

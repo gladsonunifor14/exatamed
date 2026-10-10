@@ -1,2 +1,5 @@
 Flask>=3.0,<4
 Flask-SQLAlchemy>=3.1,<4
+# Produção: servidor WSGI e driver do PostgreSQL.
+gunicorn>=22
+psycopg[binary]>=3.1,<4
