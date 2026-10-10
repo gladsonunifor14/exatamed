@@ -2,7 +2,9 @@
 
 from datetime import date, datetime
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
 
@@ -41,6 +43,51 @@ class EnderecoMixin:
             f"CEP {self.cep}" if self.cep else None,
         ]
         return ", ".join(p for p in partes if p)
+
+
+class Usuario(UserMixin, TimestampMixin, db.Model):
+    """Usuário do sistema. Os perfis são hierárquicos: auxiliar < farmacêutico < administrador."""
+
+    __tablename__ = "usuarios"
+
+    AUXILIAR = "AUXILIAR"
+    FARMACEUTICO = "FARMACEUTICO"
+    ADMIN = "ADMIN"
+    PERFIS = {AUXILIAR: "Auxiliar de farmácia", FARMACEUTICO: "Farmacêutico(a)", ADMIN: "Administrador(a)"}
+    NIVEIS = {AUXILIAR: 1, FARMACEUTICO: 2, ADMIN: 3}
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    login = db.Column(db.String(50), nullable=False, unique=True, index=True)
+    email = db.Column(db.String(200))
+    registro_profissional = db.Column(db.String(30))  # CRF, quando farmacêutico
+    perfil = db.Column(db.String(20), nullable=False, default=AUXILIAR)
+    senha_hash = db.Column(db.String(255), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+    deve_trocar_senha = db.Column(db.Boolean, default=False, nullable=False)
+    tentativas_falhas = db.Column(db.Integer, default=0, nullable=False)
+    bloqueado_ate = db.Column(db.DateTime)
+    ultimo_acesso = db.Column(db.DateTime)
+
+    def definir_senha(self, senha):
+        self.senha_hash = generate_password_hash(senha)
+
+    def conferir_senha(self, senha):
+        return check_password_hash(self.senha_hash, senha)
+
+    def pode(self, perfil_minimo):
+        return self.ativo and self.NIVEIS.get(self.perfil, 0) >= self.NIVEIS[perfil_minimo]
+
+    @property
+    def is_active(self):
+        return self.ativo
+
+    @property
+    def perfil_descricao(self):
+        return self.PERFIS.get(self.perfil, self.perfil)
+
+    def __str__(self):
+        return self.nome
 
 
 class Paciente(TimestampMixin, EnderecoMixin, db.Model):
@@ -211,7 +258,9 @@ class Dispensacao(TimestampMixin, db.Model):
     prescricao = db.Column(db.String(50))
     observacao = db.Column(db.Text)
     responsavel = db.Column(db.String(100))
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
 
+    usuario = db.relationship("Usuario")
     paciente = db.relationship("Paciente", back_populates="dispensacoes")
     medico = db.relationship("Medico", back_populates="dispensacoes")
     origem = db.relationship("Localizacao", foreign_keys=[origem_id])
@@ -256,7 +305,9 @@ class Movimentacao(db.Model):
     dispensacao_id = db.Column(db.Integer, db.ForeignKey("dispensacoes.id"), index=True)
     documento = db.Column(db.String(100))
     motivo = db.Column(db.String(200))
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
 
+    usuario = db.relationship("Usuario")
     produto = db.relationship("Produto")
     lote = db.relationship("Lote")
     localizacao = db.relationship("Localizacao", foreign_keys=[localizacao_id])
@@ -270,3 +321,14 @@ class Movimentacao(db.Model):
     @property
     def tipo_descricao(self):
         return self.TIPOS.get(self.tipo, self.tipo)
+
+
+@db.event.listens_for(Movimentacao, "before_insert")
+@db.event.listens_for(Dispensacao, "before_insert")
+def _registrar_usuario(mapper, connection, alvo):
+    """Grava automaticamente o usuário logado em toda movimentação (trilha de auditoria)."""
+    if alvo.usuario_id is None:
+        from flask import has_request_context
+        from flask_login import current_user
+        if has_request_context() and current_user.is_authenticated:
+            alvo.usuario_id = current_user.id

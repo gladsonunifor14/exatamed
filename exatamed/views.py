@@ -5,10 +5,12 @@ import io
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from flask_login import current_user
 
 from . import estoque, relatorios
+from .auth import perfil_requerido
 from .estoque import EstoqueError
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, db
+from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
 
 principal = Blueprint("principal", __name__)
 bp_estoque = Blueprint("estoque", __name__, url_prefix="/estoque")
@@ -119,6 +121,7 @@ def entrada():
 
 
 @bp_estoque.route("/saida", methods=["GET", "POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
 def saida():
     def operacao():
         produto = _obter(Produto, "produto_id", rotulo="o produto")
@@ -160,6 +163,11 @@ def dispensacao():
                 except ValueError:
                     raise EstoqueError(f"Quantidade inválida para {produto}.")
                 itens.append((produto, quantidade))
+            farmaceutico = current_user.pode(Usuario.FARMACEUTICO)
+            controlados = [str(p) for p, _ in itens if p.controlado]
+            if controlados and not farmaceutico:
+                raise EstoqueError("Itens de controle especial só podem ser dispensados por farmacêutico: "
+                                   + ", ".join(controlados) + ".")
             disp = estoque.dispensar(
                 paciente,
                 _obter(Localizacao, "origem_id", rotulo="a farmácia de origem"),
@@ -168,8 +176,9 @@ def dispensacao():
                 medico=_obter(Medico, "medico_id", obrigatorio=False),
                 prescricao=_texto("prescricao", Dispensacao.prescricao, "Nº da prescrição"),
                 observacao=request.form.get("observacao") or None,
-                responsavel=_texto("responsavel", Dispensacao.responsavel, "Responsável"),
-                confirmar_alergia=bool(request.form.get("confirmar_alergia")),
+                responsavel=current_user.nome[:Dispensacao.responsavel.type.length],
+                # Só o farmacêutico pode liberar uma dispensação com alerta de alergia.
+                confirmar_alergia=farmaceutico and bool(request.form.get("confirmar_alergia")),
             )
             db.session.commit()
             flash(f"Dispensação nº {disp.id} registrada para {paciente.nome}. "
@@ -235,6 +244,7 @@ def movimentacoes():
 
 
 @bp_estoque.route("/inventario", methods=["GET", "POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
 def contagem():
     """Contagem física: ajusta os saldos dos lotes de um local."""
     localizacao = _obter(Localizacao, "localizacao_id", obrigatorio=False)

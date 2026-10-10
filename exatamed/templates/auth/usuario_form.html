@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Usuário{% endblock %}
+{% block conteudo %}
+{% set v = form or {} %}
+<h1 class="h3 mb-3">{{ 'Editar usuário' if usuario.id else 'Novo usuário' }}</h1>
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card-body row g-3">
+    <div class="col-md-6"><label class="form-label obrigatorio">Nome completo</label><input class="form-control" name="nome" maxlength="200" required value="{{ v.nome if form else usuario.nome or '' }}"></div>
+    <div class="col-md-3"><label class="form-label obrigatorio">Login</label><input class="form-control" name="login" maxlength="50" required autocomplete="off" value="{{ v.login if form else usuario.login or '' }}"></div>
+    <div class="col-md-3"><label class="form-label obrigatorio">Perfil</label>
+      <select class="form-select" name="perfil">{% set atual = v.perfil if form else usuario.perfil %}
+        {% for chave, rotulo in perfis.items() %}<option value="{{ chave }}" {{ 'selected' if atual == chave }}>{{ rotulo }}</option>{% endfor %}
+      </select></div>
+    <div class="col-md-6"><label class="form-label">E-mail</label><input class="form-control" type="email" name="email" maxlength="200" value="{{ v.email if form else usuario.email or '' }}"></div>
+    <div class="col-md-3"><label class="form-label">Registro profissional (CRF)</label><input class="form-control" name="registro_profissional" maxlength="30" value="{{ v.registro_profissional if form else usuario.registro_profissional or '' }}"></div>
+    <div class="col-md-3"><div class="form-check mt-md-4 pt-md-2"><input class="form-check-input" type="checkbox" id="ativo" name="ativo" {{ 'checked' if (v.ativo if form else usuario.ativo) }}><label class="form-check-label" for="ativo">Ativo</label></div></div>
+    <div class="col-12"><h2 class="h6 secao-form">{{ 'Redefinir senha (deixe em branco para manter)' if usuario.id else 'Senha inicial' }}</h2></div>
+    <div class="col-md-4"><label class="form-label {{ 'obrigatorio' if not usuario.id }}">Senha</label><input class="form-control" type="password" name="senha" autocomplete="new-password" {{ 'required' if not usuario.id }}></div>
+    <div class="col-md-4"><label class="form-label {{ 'obrigatorio' if not usuario.id }}">Confirmação</label><input class="form-control" type="password" name="confirmacao" autocomplete="new-password" {{ 'required' if not usuario.id }}></div>
+    <div class="col-md-4 form-text pt-md-4">A senha definida aqui é provisória: o usuário deverá trocá-la no primeiro acesso.</div>
+  </div>
+  <div class="card-footer text-end">
+    <a class="btn btn-outline-secondary" href="{{ url_for('auth.usuarios') }}">Cancelar</a>
+    <button class="btn btn-exata"><i class="bi bi-check-lg"></i> Salvar</button>
+  </div>
+</form>
+{% endblock %}

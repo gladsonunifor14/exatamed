@@ -24,3 +24,22 @@ def test_url_padrao_sqlite_e_fallback_database_url(monkeypatch):
 
 def test_verificacao_de_saude(client):
     assert client.get("/saude").get_json()["status"] == "ok"
+
+
+def test_banco_da_versao_anterior_ganha_colunas_de_auditoria(tmp_path):
+    import sqlite3
+
+    from exatamed import create_app
+    from exatamed.models import db
+
+    arquivo = tmp_path / "antigo.db"
+    con = sqlite3.connect(arquivo)
+    con.execute("CREATE TABLE movimentacoes (id INTEGER PRIMARY KEY, tipo VARCHAR(20))")
+    con.execute("CREATE TABLE dispensacoes (id INTEGER PRIMARY KEY)")
+    con.commit()
+    con.close()
+    app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{arquivo}"})
+    with app.app_context():
+        for tabela in ("movimentacoes", "dispensacoes"):
+            colunas = {c["name"] for c in db.inspect(db.engine).get_columns(tabela)}
+            assert "usuario_id" in colunas

@@ -4,7 +4,7 @@ import random
 from datetime import date, datetime, timedelta
 
 from . import estoque
-from .models import Localizacao, Medico, Paciente, Produto, db
+from .models import Localizacao, Medico, Paciente, Produto, Usuario, db
 
 
 def gerar_cpf(rng):
@@ -107,3 +107,22 @@ def popular(semente=42):
                 pass
     db.session.commit()
     return True
+
+
+USUARIOS_DEMO = [
+    ("admin", "admin1234", Usuario.ADMIN, "Administrador do sistema"),
+    ("farmaceutico", "farma1234", Usuario.FARMACEUTICO, "Farmacêutica Responsável"),
+    ("auxiliar", "auxiliar1234", Usuario.AUXILIAR, "Auxiliar de Farmácia"),
+]
+
+
+def criar_usuarios_demo():
+    """Cria usuários de demonstração se ainda não houver nenhum usuário."""
+    if Usuario.query.first():
+        return []
+    for login, senha, perfil, nome in USUARIOS_DEMO:
+        usuario = Usuario(nome=nome, login=login, perfil=perfil)
+        usuario.definir_senha(senha)
+        db.session.add(usuario)
+    db.session.commit()
+    return [(login, senha, Usuario.PERFIS[perfil]) for login, senha, perfil, _ in USUARIOS_DEMO]

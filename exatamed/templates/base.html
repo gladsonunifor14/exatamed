@@ -9,6 +9,7 @@
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body>
+{% if current_user.is_authenticated %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-exata d-print-none">
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="{{ url_for('principal.painel') }}"><i class="bi bi-capsule-pill"></i> ExataMed</a>
@@ -28,20 +29,35 @@
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Estoque</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{{ url_for('estoque.entrada') }}"><i class="bi bi-box-arrow-in-down"></i> Entrada</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('estoque.saida') }}"><i class="bi bi-box-arrow-up"></i> Saída avulsa</a></li>
+            {% if current_user.pode(Usuario.FARMACEUTICO) %}<li><a class="dropdown-item" href="{{ url_for('estoque.saida') }}"><i class="bi bi-box-arrow-up"></i> Saída avulsa</a></li>{% endif %}
             <li><a class="dropdown-item" href="{{ url_for('estoque.transferencia') }}"><i class="bi bi-arrow-left-right"></i> Transferência entre locais</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{{ url_for('estoque.lotes') }}"><i class="bi bi-stack"></i> Lotes e saldos</a></li>
             <li><a class="dropdown-item" href="{{ url_for('estoque.movimentacoes') }}"><i class="bi bi-list-ul"></i> Movimentações</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('estoque.contagem') }}"><i class="bi bi-clipboard-check"></i> Contagem de inventário</a></li>
+            {% if current_user.pode(Usuario.FARMACEUTICO) %}<li><a class="dropdown-item" href="{{ url_for('estoque.contagem') }}"><i class="bi bi-clipboard-check"></i> Contagem de inventário</a></li>{% endif %}
           </ul>
         </li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('estoque.dispensacao') }}"><i class="bi bi-prescription2"></i> Dispensação</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('relatorios.indice') }}"><i class="bi bi-graph-up"></i> Relatórios</a></li>
       </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> {{ current_user.nome }}
+            <span class="badge bg-light text-dark ms-1">{{ current_user.perfil_descricao }}</span></a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('auth.minha_senha') }}"><i class="bi bi-key"></i> Alterar minha senha</a></li>
+            {% if current_user.pode(Usuario.ADMIN) %}<li><a class="dropdown-item" href="{{ url_for('auth.usuarios') }}"><i class="bi bi-people"></i> Usuários</a></li>{% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><form method="post" action="{{ url_for('auth.logout') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Sair</button></form></li>
+          </ul>
+        </li>
+      </ul>
     </div>
   </div>
 </nav>
+{% endif %}
 <main class="container-fluid py-4 px-lg-4">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
     {% for categoria, mensagem in mensagens %}

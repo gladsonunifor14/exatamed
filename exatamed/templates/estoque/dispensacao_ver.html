@@ -12,7 +12,7 @@
   <div class="col-md-4"><strong>Cartão SUS / plano:</strong> {{ d.paciente.cartao_sus or '—' }} / {{ d.paciente.plano_saude or 'SUS' }}</div>
   <div class="col-md-4"><strong>Médico:</strong> {{ d.medico or '—' }}</div>
   <div class="col-md-4"><strong>Prescrição:</strong> {{ d.prescricao or '—' }}</div>
-  <div class="col-md-4"><strong>Responsável:</strong> {{ d.responsavel or '—' }}</div>
+  <div class="col-md-4"><strong>Responsável:</strong> {{ d.responsavel or '—' }}{% if d.usuario %} <span class="text-muted">({{ d.usuario.login }}{% if d.usuario.registro_profissional %}, {{ d.usuario.registro_profissional }}{% endif %})</span>{% endif %}</div>
   <div class="col-md-4"><strong>Origem:</strong> {{ d.origem }}</div>
   <div class="col-md-4"><strong>Local de dispensação:</strong> {{ d.destino }}</div>
   <div class="col-md-4"><strong>Alergias:</strong> <span class="{{ 'text-danger' if d.paciente.alergias }}">{{ d.paciente.alergias or 'Nenhuma registrada' }}</span></div>

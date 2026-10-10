@@ -3,7 +3,7 @@
 {% block conteudo %}
 <h1 class="h3 mb-3"><i class="bi bi-arrow-left-right"></i> Transferência entre locais</h1>
 <p class="text-muted">Movimenta estoque entre farmácias e setores mantendo lote, validade e custo de origem (a ordem PEPS é preservada).</p>
-<form method="post" class="card"><div class="card-body row g-3">
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label obrigatorio">Medicamento / material</label>{{ select_produto(produtos, selecionado=request.form.produto_id) }}</div>
   <div class="col-md-3"><label class="form-label obrigatorio">Quantidade</label><input class="form-control" name="quantidade" inputmode="decimal" required></div>
   <div class="col-md-3"><label class="form-label">Documento</label><input class="form-control" name="documento" maxlength="100"></div>
