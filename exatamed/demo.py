@@ -26,6 +26,9 @@ def gerar_cns(rng):
 
 
 def popular(semente=42):
+    """Cria os dados de demonstração. Retorna False se o banco já tiver cadastros."""
+    if Paciente.query.first() or Medico.query.first() or Produto.query.first():
+        return False
     rng = random.Random(semente)
     locais = {l.nome: l for l in Localizacao.query.all()}
     for nome in ("Leito 1", "Leito 2", "Leito 3", "Sala de parada", "Sala de recuperação", "UTI"):
@@ -103,3 +106,4 @@ def popular(semente=42):
             except estoque.EstoqueError:
                 pass
     db.session.commit()
+    return True

@@ -53,3 +53,9 @@ def test_fluxo_entrada_e_dispensacao_pela_web(client, app):
 def test_local_principal_nao_pode_ser_excluido(client, app):
     client.post("/cadastros/localizacoes/1/excluir")
     assert client.get("/cadastros/localizacoes/").data.decode().count("Farmácia SUS") >= 1
+
+
+def test_demo_nao_duplica_dados(app):
+    assert popular() is True
+    assert popular() is False
+    assert Paciente.query.count() == 3

@@ -77,7 +77,9 @@ def create_app(config=None):
     def demo():
         """Popula o banco com dados de demonstração."""
         from .demo import popular
-        popular()
-        click.echo("Dados de demonstração criados.")
+        if popular():
+            click.echo("Dados de demonstração criados.")
+        else:
+            click.echo("O banco já possui cadastros; dados de demonstração não foram criados.")
 
     return app
