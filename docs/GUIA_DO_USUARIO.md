@@ -7,7 +7,7 @@ disponível dentro do sistema, no menu **Ajuda**.
 |---|---|
 | **Auxiliar de farmácia** | [Primeiro acesso](#primeiro-acesso), [Conhecendo o painel](#conhecendo-o-painel) e [Dispensação no dia a dia](#dispensação-no-dia-a-dia) |
 | **Farmacêutico(a)** | Os itens acima e também [Outras operações de estoque](#outras-operações-de-estoque) e [Relatórios](#relatórios) |
-| **Administrador(a)** | [Roteiro de implantação](#roteiro-de-implantação-administrador) e [Gestão de usuários](#gestão-de-usuários-administrador) |
+| **Administrador(a)** | [Roteiro de implantação](#roteiro-de-implantação-administrador), [Gestão de usuários](#gestão-de-usuários-administrador) e [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd) |
 
 ## Primeiro acesso
 
@@ -226,6 +226,69 @@ Acesse o menu com o seu nome → **Usuários**.
 Você não pode remover o seu próprio perfil de administrador. Isso evita que o sistema fique sem
 nenhum administrador.
 
+## Proteção de dados pessoais (LGPD)
+
+O ExataMed trata dados pessoais e dados de saúde, que são **dados sensíveis** pela Lei Geral de
+Proteção de Dados (Lei nº 13.709/2018). O sistema ajuda a cumprir a lei de quatro formas.
+
+### Documentos mascarados
+
+Em listas, na escolha do paciente na dispensação, nos relatórios e nas exportações em CSV, os
+documentos aparecem parcialmente ocultos, apenas o suficiente para conferência:
+
+| Dado | Como aparece |
+|---|---|
+| CPF | `***.982.247-**` |
+| Cartão SUS | `***********5933` |
+| Telefone | `(**) *****-1234` |
+
+Os dados completos aparecem só na **ficha do cadastro** e no **comprovante de dispensação** (que
+traz o Cartão SUS completo para faturamento). A busca por CPF continua funcionando.
+
+### Registro de acessos
+
+O sistema registra quem **visualizou** a ficha completa de um paciente, médico ou usuário, quem
+**incluiu** ou **alterou** um cadastro, quem abriu um comprovante de dispensação, quem
+**exportou** relatório com dados de pacientes e quem **anonimizou** um cadastro, com data, hora e
+endereço IP. O administrador consulta esse registro em seu nome → **LGPD: registro de acessos**,
+com filtros por usuário, tipo de dado e ação.
+
+![Registro de acessos](img/lgpd_acessos.png)
+
+### Relatórios sem identificação
+
+Nos relatórios **Resumo de dispensação por data** e **Consumo por paciente**, marque **Ocultar
+identificação dos pacientes**. O nome é trocado por um código (por exemplo `P-000123`) e os
+documentos são omitidos. Use essa opção sempre que o relatório for enviado para fora da farmácia
+(diretoria, auditoria externa, pesquisa).
+
+### Anonimização de cadastros (administrador)
+
+Quando o titular pede a eliminação dos seus dados, ou quando um profissional deixa a equipe, o
+administrador pode **anonimizar** o cadastro:
+
+1. Abra a ficha do paciente, do médico ou do usuário e clique em **Anonimizar**.
+2. Leia o que será apagado, informe o **motivo** (por exemplo *pedido do titular, protocolo nº
+   15/2026*) e digite **ANONIMIZAR** para confirmar.
+
+![Anonimização de cadastro](img/lgpd_anonimizar.png)
+
+O que acontece:
+
+- Os dados que identificam a pessoa são apagados **de forma definitiva**. O nome passa a ser um
+  código (*Paciente anonimizado P-000123*). Da data de nascimento fica só o ano.
+- As dispensações e movimentações de estoque são **preservadas**, com quantidades, lotes e
+  custos, para que o estoque e os relatórios continuem corretos.
+- O cadastro anonimizado não pode mais ser editado nem receber novas dispensações.
+- Um usuário anonimizado perde o acesso ao sistema. Ninguém pode anonimizar o próprio usuário
+  nem o único administrador ativo.
+
+> **Prazo de guarda dos controlados:** pacientes, médicos e usuários envolvidos em dispensação
+> de medicamento de **controle especial** (incluindo antimicrobianos) nos **últimos 2 anos** não
+> podem ser anonimizados até o fim desse prazo, pois a escrituração desses medicamentos precisa
+> ser mantida. O sistema informa a data a partir da qual a anonimização será possível. Confirme o
+> prazo adotado pela instituição com o encarregado de dados (DPO) e o farmacêutico responsável.
+
 ## O que cada perfil pode fazer
 
 | Função | Auxiliar | Farmacêutico | Administrador |
@@ -240,6 +303,7 @@ nenhum administrador.
 | Cadastrar medicamentos e localizações | | ✔ | ✔ |
 | Excluir registros | | ✔ | ✔ |
 | Gerenciar usuários | | | ✔ |
+| Consultar o registro de acessos e anonimizar cadastros (LGPD) | | | ✔ |
 
 ## Perguntas frequentes
 
@@ -263,6 +327,14 @@ abrir o comprovante.
 
 **Onde vejo quem fez uma movimentação?**
 Em **Estoque → Movimentações**, na coluna *Usuário*, e no comprovante de cada dispensação.
+
+**Por que o CPF aparece com asteriscos?**
+Por proteção de dados (LGPD). O CPF completo aparece na ficha do cadastro; a abertura da ficha
+fica registrada. Veja [Proteção de dados pessoais](#proteção-de-dados-pessoais-lgpd).
+
+**Um paciente pediu a exclusão dos dados dele. O que faço?**
+Peça ao administrador para anonimizar o cadastro. Se o paciente recebeu medicamento controlado
+nos últimos 2 anos, o sistema informa a partir de quando isso será possível.
 
 **O sistema diz que o formulário expirou.**
 A página ficou aberta por muito tempo ou a sessão terminou. Recarregue a página e tente de novo.

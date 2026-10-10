@@ -35,6 +35,9 @@ COLUNAS_NOVAS = [
     ("usuarios", "ocultar_primeiros_passos", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("dispensacoes", "numero", "INTEGER"),
     ("dispensacoes", "ano", "INTEGER"),
+    ("pacientes", "anonimizado_em", "TIMESTAMP"),
+    ("medicos", "anonimizado_em", "TIMESTAMP"),
+    ("usuarios", "anonimizado_em", "TIMESTAMP"),
 ]
 
 
@@ -117,7 +120,7 @@ def create_app(config=None):
     db.init_app(app)
     csrf.init_app(app)
 
-    from . import ajuda, auth, cadastros, views
+    from . import ajuda, auth, cadastros, lgpd, views
     auth.login_manager.init_app(app)
     app.before_request(auth.exigir_login)
     app.register_blueprint(auth.bp)
@@ -126,6 +129,7 @@ def create_app(config=None):
     app.register_blueprint(views.bp_relatorios)
     app.register_blueprint(cadastros.bp)
     app.register_blueprint(ajuda.bp)
+    app.register_blueprint(lgpd.bp)
 
     @app.route("/saude")
     def saude():
@@ -215,6 +219,20 @@ def create_app(config=None):
             click.echo("Usuários de demonstração (troque as senhas antes de usar dados reais):")
             for login, senha, perfil in criados:
                 click.echo(f"  {login:<14} senha: {senha:<14} perfil: {perfil}")
+
+    @app.cli.command("anonimizar-banco")
+    @click.option("--confirmar", is_flag=True, help="Confirma que este banco é uma CÓPIA.")
+    def anonimizar_banco_cmd(confirmar):
+        """Anonimiza todos os dados pessoais de uma CÓPIA do banco (treinamento e testes)."""
+        from .lgpd import anonimizar_banco
+        if app.config["PRODUCAO"]:
+            raise click.ClickException("Comando bloqueado em produção (EXATAMED_ENV=production). "
+                                       "Rode-o numa cópia do banco.")
+        if not confirmar:
+            raise click.ClickException("Operação irreversível. Use numa CÓPIA do banco e repita com --confirmar.")
+        totais = anonimizar_banco()
+        click.echo(f"Banco anonimizado: {totais['pacientes']} paciente(s), {totais['medicos']} médico(s) e "
+                   f"{totais['usuarios']} usuário(s). Logins e senhas foram mantidos.")
 
     @app.cli.command("criar-admin")
     @click.option("--login", prompt="Login")

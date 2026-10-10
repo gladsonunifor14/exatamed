@@ -10,9 +10,11 @@ from sqlalchemy.exc import IntegrityError
 
 from . import estoque, relatorios
 from .ajuda import primeiros_passos
+from .lgpd import registrar_acesso
 from .auth import perfil_requerido
 from .estoque import EstoqueError
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
+from .models import (Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso,
+                     Usuario, db)
 
 principal = Blueprint("principal", __name__)
 bp_estoque = Blueprint("estoque", __name__, url_prefix="/estoque")
@@ -58,8 +60,9 @@ def _contexto_formularios():
         "produtos": Produto.query.filter_by(ativo=True).order_by(Produto.nome_comercial).all(),
         "locais": Localizacao.query.filter_by(ativo=True).order_by(Localizacao.principal.desc(),
                                                                    Localizacao.nome).all(),
-        "pacientes": Paciente.query.order_by(Paciente.nome).all(),
-        "medicos": Medico.query.order_by(Medico.nome).all(),
+        # Cadastros anonimizados não recebem novas dispensações.
+        "pacientes": Paciente.query.filter(Paciente.anonimizado_em.is_(None)).order_by(Paciente.nome).all(),
+        "medicos": Medico.query.filter(Medico.anonimizado_em.is_(None)).order_by(Medico.nome).all(),
         "hoje": date.today(),
     }
 
@@ -222,7 +225,11 @@ def dispensacao():
 
 @bp_estoque.route("/dispensacao/<int:id>")
 def ver_dispensacao(id):
-    return render_template("estoque/dispensacao_ver.html", d=db.get_or_404(Dispensacao, id))
+    dispensacao = db.get_or_404(Dispensacao, id)
+    # O comprovante mostra o Cartão SUS completo (necessário para faturamento): acesso registrado.
+    registrar_acesso(RegistroAcesso.VISUALIZAR, "dispensacao", dispensacao.id,
+                     f"Comprovante {dispensacao.numero_formatado}")
+    return render_template("estoque/dispensacao_ver.html", d=dispensacao)
 
 
 @bp_estoque.route("/alergias")
@@ -314,6 +321,14 @@ RELATORIOS = {
 }
 
 
+# Relatórios que identificam pacientes: podem ser gerados anonimizados e têm a exportação registrada.
+RELATORIOS_COM_PACIENTES = ("resumo_dispensacao", "consumo_paciente")
+
+
+def _anonimo():
+    return request.args.get("anonimo") == "1"
+
+
 def _gerar(chave):
     hoje = date.today()
     inicio = _data("inicio", hoje.replace(day=1))
@@ -324,11 +339,12 @@ def _gerar(chave):
     if chave == "consumo_diario":
         return relatorios.consumo_diario(inicio, fim, localizacao_id)
     if chave == "resumo_dispensacao":
-        return relatorios.resumo_dispensacao(inicio, fim)
+        return relatorios.resumo_dispensacao(inicio, fim, anonimo=_anonimo())
     if chave == "consumo_local":
         return relatorios.consumo_por_local(inicio, fim, localizacao_id)
     if chave == "consumo_paciente":
-        return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int))
+        return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int),
+                                               anonimo=_anonimo())
     if chave == "pedido_compra":
         dias = max(request.args.get("dias", 30, type=int), 1)
         return relatorios.pedido_compra(dias)
@@ -371,6 +387,9 @@ def exibir(chave):
         flash(str(erro), "danger")
         tabelas = []
     if request.args.get("formato") == "csv":
+        if chave in RELATORIOS_COM_PACIENTES and not _anonimo():
+            registrar_acesso(RegistroAcesso.EXPORTAR, "relatorio", None,
+                             f"{titulo} ({request.args.get('inicio', '')} a {request.args.get('fim', '')})")
         return _csv(titulo, tabelas)
     hoje = date.today()
     return render_template("relatorios/relatorio.html", chave=chave, titulo=titulo, filtros=filtros,

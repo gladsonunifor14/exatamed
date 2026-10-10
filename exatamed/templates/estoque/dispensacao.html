@@ -9,7 +9,7 @@
 <form method="post" class="card" id="form-dispensacao"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
   <div class="col-md-5"><label class="form-label obrigatorio">Paciente</label>
     <select class="form-select" name="paciente_id" id="paciente" required><option value="">Selecione...</option>
-      {% for p in pacientes %}<option value="{{ p.id }}" data-alergias="{{ p.alergias or '' }}" data-plano="{{ p.plano_saude or '' }}" {% if form.paciente_id == p.id|string %}selected{% endif %}>{{ p.nome }}{% if p.cpf %} — {{ p.cpf }}{% endif %}</option>{% endfor %}
+      {% for p in pacientes %}<option value="{{ p.id }}" data-alergias="{{ p.alergias or '' }}" data-plano="{{ p.plano_saude or '' }}" {% if form.paciente_id == p.id|string %}selected{% endif %}>{{ p.nome }}{% if p.cpf %} — CPF {{ p.cpf_mascarado }}{% endif %}</option>{% endfor %}
     </select>
     <div class="form-text" id="info-paciente"></div></div>
   <div class="col-md-4"><label class="form-label">Médico prescritor</label>

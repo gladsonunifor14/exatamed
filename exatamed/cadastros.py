@@ -8,7 +8,9 @@ from flask_login import current_user
 from sqlalchemy import or_
 
 from . import validacao
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
+from .lgpd import registrar_acesso
+from .models import (Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso,
+                     Usuario, db)
 
 bp = Blueprint("cadastros", __name__, url_prefix="/cadastros")
 
@@ -76,6 +78,7 @@ class Cadastro:
     pode_excluir: callable = None
     links: list = field(default_factory=list)  # (rótulo, endpoint, nome do parâmetro)
     perfil_edicao: str = Usuario.AUXILIAR  # perfil mínimo para incluir/alterar
+    entidade_lgpd: str = None  # cadastros de pessoas: acessos registrados e anonimização
 
     def limite(self, atributo):
         return tamanho_maximo(self.modelo, atributo)
@@ -187,11 +190,12 @@ CADASTROS = {
                         "São verificadas a cada dispensação."),
             Campo("historico_doencas", "Histórico de doenças graves", "textarea", largura=12),
         ],
-        colunas=[("nome", "Nome"), ("idade", "Idade"), ("cpf", "CPF"), ("cartao_sus", "Cartão SUS"),
-                 ("plano_saude", "Plano"), ("alergias", "Alergias")],
+        colunas=[("nome", "Nome"), ("idade", "Idade"), ("cpf_mascarado", "CPF"),
+                 ("cartao_sus_mascarado", "Cartão SUS"), ("plano_saude", "Plano"), ("alergias", "Alergias")],
         busca=["nome", "cpf", "cartao_sus", "nome_mae"],
         validar=validar_paciente,
         pode_excluir=_bloqueio_paciente,
+        entidade_lgpd="paciente",
         links=[("Consumo", "relatorios.consumo_paciente", "paciente_id")],
     ),
     "medicos": Cadastro(
@@ -209,10 +213,11 @@ CADASTROS = {
             Campo("telefone", "Telefone", largura=4, secao="Contato"),
         ],
         colunas=[("nome", "Nome"), ("crm_formatado", "CRM"), ("especialidade", "Especialidade"),
-                 ("idade", "Idade"), ("telefone", "Telefone")],
+                 ("idade", "Idade"), ("telefone_mascarado", "Telefone")],
         busca=["nome", "crm", "cpf", "especialidade"],
         validar=validar_medico,
         pode_excluir=_bloqueio_medico,
+        entidade_lgpd="medico",
     ),
     "produtos": Cadastro(
         "produtos", Produto, "Medicamentos e materiais", "Medicamento / material",
@@ -330,6 +335,9 @@ def editar(chave, id=None):
         abort(403)
     if id:
         obj = db.get_or_404(cadastro.modelo, id)
+        if getattr(obj, "anonimizado", False):
+            flash("Este cadastro foi anonimizado e não pode mais ser alterado.", "warning")
+            return redirect(url_for(".listar", chave=chave))
     else:
         obj = cadastro.modelo()
         for campo in cadastro.campos:
@@ -345,8 +353,14 @@ def editar(chave, id=None):
             return render_template("cadastros/form.html", cadastro=cadastro, obj=obj, valores=request.form), 422
         db.session.add(obj)
         db.session.commit()
+        if cadastro.entidade_lgpd:
+            registrar_acesso(RegistroAcesso.ALTERAR if id else RegistroAcesso.INCLUIR,
+                             cadastro.entidade_lgpd, obj.id, obj.nome)
         flash(f"{cadastro.titulo_singular} salvo(a) com sucesso.", "success")
         return redirect(url_for(".listar", chave=chave))
+    if id and cadastro.entidade_lgpd:
+        # A ficha mostra os dados pessoais completos: o acesso fica registrado.
+        registrar_acesso(RegistroAcesso.VISUALIZAR, cadastro.entidade_lgpd, obj.id, obj.nome)
     return render_template("cadastros/form.html", cadastro=cadastro, obj=obj, valores=None)
 
 

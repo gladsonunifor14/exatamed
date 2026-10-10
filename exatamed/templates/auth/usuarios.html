@@ -13,7 +13,8 @@
       <td>{{ u.nome }}</td><td>{{ u.login }}</td><td>{{ u.perfil_descricao }}</td><td>{{ u.registro_profissional or '' }}</td>
       <td>{{ u.ultimo_acesso|data('%d/%m/%Y %H:%M') if u.ultimo_acesso else 'Nunca' }}</td>
       <td>
-        {% if not u.ativo %}<span class="badge bg-secondary">Inativo</span>
+        {% if u.anonimizado %}<span class="badge bg-dark">Anonimizado</span>
+        {% elif not u.ativo %}<span class="badge bg-secondary">Inativo</span>
         {% elif u.bloqueado_ate and u.bloqueado_ate > agora %}<span class="badge bg-danger">Bloqueado</span>
         {% else %}<span class="badge bg-success">Ativo</span>{% endif %}
         {% if u.deve_trocar_senha %}<span class="badge bg-warning text-dark">Senha provisória</span>{% endif %}
@@ -22,7 +23,7 @@
         {% if u.bloqueado_ate and u.bloqueado_ate > agora %}
         <form class="d-inline" method="post" action="{{ url_for('auth.desbloquear_usuario', id=u.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock"></i> Desbloquear</button></form>
         {% endif %}
-        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth.editar_usuario', id=u.id) }}"><i class="bi bi-pencil"></i></a>
+        {% if not u.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth.editar_usuario', id=u.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
       </td>
     </tr>
   {% endfor %}

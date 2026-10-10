@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Anonimizar {{ rotulo|lower }}{% endblock %}
+{% block conteudo %}
+<div class="row justify-content-center"><div class="col-lg-8">
+<h1 class="h3 mb-3"><i class="bi bi-incognito"></i> Anonimizar {{ rotulo|lower }}</h1>
+<div class="card mb-3"><div class="card-body">
+  <div class="row g-2">
+    <div class="col-md-6"><strong>{{ rotulo }}:</strong> {{ registro.nome }}</div>
+    {% if entidade == 'usuario' %}
+      <div class="col-md-6"><strong>Login:</strong> {{ registro.login }}</div>
+    {% else %}
+      <div class="col-md-6"><strong>CPF:</strong> {{ registro.cpf_mascarado or '—' }}</div>
+    {% endif %}
+  </div>
+</div></div>
+
+{% if impedimento %}
+<div class="alert alert-warning"><i class="bi bi-hourglass-split"></i> <strong>Não é possível anonimizar agora.</strong> {{ impedimento }}</div>
+<a class="btn btn-outline-secondary" href="{{ voltar }}">Voltar</a>
+{% else %}
+<div class="alert alert-danger">
+  <h2 class="h6"><i class="bi bi-exclamation-triangle-fill"></i> Esta operação é definitiva e não pode ser desfeita.</h2>
+  <ul class="mb-0 small">
+    {% if entidade == 'paciente' %}
+    <li>O nome passa a ser <strong>Paciente anonimizado {{ registro.pseudonimo }}</strong>.</li>
+    <li>São apagados: nome da mãe, CPF, RG, Cartão SUS, telefone, endereço, responsável, profissão, alergias, tipo sanguíneo e histórico de doenças.</li>
+    <li>Da data de nascimento fica só o ano. Sexo e plano de saúde são mantidos para estatísticas.</li>
+    {% elif entidade == 'medico' %}
+    <li>O nome passa a ser <strong>Médico anonimizado M-{{ '%06d'|format(registro.id) }}</strong> e o CRM é substituído.</li>
+    <li>São apagados: CPF, RG, telefone e endereço. Da data de nascimento fica só o ano.</li>
+    {% else %}
+    <li>O nome passa a ser <strong>Usuário anonimizado U-{{ '%06d'|format(registro.id) }}</strong>, o login é substituído e o acesso é bloqueado.</li>
+    <li>São apagados: e-mail e registro profissional. O nome também é substituído nas dispensações que ele registrou.</li>
+    {% endif %}
+    <li>As dispensações e movimentações de estoque são <strong>preservadas</strong> (quantidades, lotes e custos), sem os dados pessoais.</li>
+    <li>A operação fica gravada no registro de acessos, com o motivo informado.</li>
+  </ul>
+</div>
+<form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card-body row g-3">
+    <div class="col-12"><label class="form-label obrigatorio" for="motivo">Motivo</label>
+      <input class="form-control" id="motivo" name="motivo" maxlength="200" required placeholder="Ex.: pedido do titular, protocolo nº 123/2026">
+      <div class="form-text">Registre a base do pedido (art. 18 da LGPD), para prestação de contas.</div></div>
+    <div class="col-md-6"><label class="form-label obrigatorio" for="confirmacao">Para confirmar, digite <strong>{{ confirmacao }}</strong></label>
+      <input class="form-control" id="confirmacao" name="confirmacao" required autocomplete="off"></div>
+  </div>
+  <div class="card-footer text-end">
+    <a class="btn btn-outline-secondary" href="{{ voltar }}">Cancelar</a>
+    <button class="btn btn-danger"><i class="bi bi-incognito"></i> Anonimizar definitivamente</button>
+  </div>
+</form>
+{% endif %}
+</div></div>
+{% endblock %}

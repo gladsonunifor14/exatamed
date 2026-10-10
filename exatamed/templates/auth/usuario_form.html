@@ -19,7 +19,11 @@
     <div class="col-md-4"><label class="form-label {{ 'obrigatorio' if not usuario.id }}">Confirmação</label><input class="form-control" type="password" name="confirmacao" autocomplete="new-password" {{ 'required' if not usuario.id }}></div>
     <div class="col-md-4 form-text pt-md-4">A senha definida aqui é provisória: o usuário deverá trocá-la no primeiro acesso.</div>
   </div>
-  <div class="card-footer text-end">
+  <div class="card-footer d-flex gap-2">
+    <span class="me-auto"></span>
+    {% if usuario.id and usuario.id != current_user.id %}
+    <a class="btn btn-outline-danger" href="{{ url_for('lgpd.anonimizar_cadastro', entidade='usuario', id=usuario.id) }}"><i class="bi bi-incognito"></i> Anonimizar</a>
+    {% endif %}
     <a class="btn btn-outline-secondary" href="{{ url_for('auth.usuarios') }}">Cancelar</a>
     <button class="btn btn-exata"><i class="bi bi-check-lg"></i> Salvar</button>
   </div>

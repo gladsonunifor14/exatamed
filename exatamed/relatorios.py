@@ -87,7 +87,12 @@ def consumo_diario(inicio, fim, localizacao_id=None):
     return [dias, produtos]
 
 
-def resumo_dispensacao(inicio, fim):
+def _identificacao(paciente, anonimo):
+    """Nome do paciente ou, em relatórios anonimizados, um código sem dados pessoais."""
+    return paciente.pseudonimo if anonimo else paciente.nome
+
+
+def resumo_dispensacao(inicio, fim, anonimo=False):
     ini, fim_ = _periodo(inicio, fim)
     dispensacoes = Dispensacao.query.filter(Dispensacao.data.between(ini, fim_)) \
         .order_by(Dispensacao.data).all()
@@ -105,7 +110,7 @@ def resumo_dispensacao(inicio, fim):
         g["itens"] += len(produtos)
         g["custo"] += d.custo_total
         detalhe.linhas.append([
-            d.numero_formatado, d.data.strftime("%d/%m/%Y %H:%M"), d.paciente.nome,
+            d.numero_formatado, d.data.strftime("%d/%m/%Y %H:%M"), _identificacao(d.paciente, anonimo),
             d.medico.nome if d.medico else "", d.origem.nome, d.destino.nome,
             d.prescricao or "", len(produtos), d.custo_total,
         ])
@@ -147,7 +152,8 @@ def consumo_por_local(inicio, fim, localizacao_id=None):
     return tabelas
 
 
-def consumo_por_paciente(inicio, fim, paciente_id=None):
+def consumo_por_paciente(inicio, fim, paciente_id=None, anonimo=False):
+    """CPF e Cartão SUS saem mascarados; com `anonimo`, o paciente vira um código (P-000123)."""
     movimentos = _movimentos_consumo(inicio, fim, tipos=(Movimentacao.DISPENSACAO,))
     if paciente_id:
         movimentos = [m for m in movimentos if m.dispensacao.paciente_id == paciente_id]
@@ -159,14 +165,18 @@ def consumo_por_paciente(inicio, fim, paciente_id=None):
         Coluna("Dispensações", "numero"), Coluna("Itens distintos", "numero"), Coluna("Custo PEPS", "moeda"),
     ])
     tabelas = [resumo]
-    for paciente, movs in sorted(por_paciente.items(), key=lambda kv: kv[0].nome):
+    ordem = (lambda kv: kv[0].id) if anonimo else (lambda kv: kv[0].nome)
+    for paciente, movs in sorted(por_paciente.items(), key=ordem):
         resumo.linhas.append([
-            paciente.nome, paciente.cpf or "", paciente.cartao_sus or "", paciente.plano_saude or "SUS",
+            _identificacao(paciente, anonimo),
+            "" if anonimo else paciente.cpf_mascarado,
+            "" if anonimo else paciente.cartao_sus_mascarado,
+            paciente.plano_saude or "SUS",
             len({m.dispensacao_id for m in movs}), len({m.produto_id for m in movs}),
             sum(m.custo_total for m in movs),
         ])
         if paciente_id:
-            tabelas.append(Tabela(f"Itens consumidos — {paciente.nome}", COLUNAS_PRODUTO,
+            tabelas.append(Tabela(f"Itens consumidos — {_identificacao(paciente, anonimo)}", COLUNAS_PRODUTO,
                                   _agrupar_por_produto(movs)))
     resumo.rodape = ["Total", "", "", "", sum(l[4] for l in resumo.linhas), "",
                      sum(l[6] for l in resumo.linhas)]

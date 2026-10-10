@@ -28,6 +28,7 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - [Análises e relatórios](#análises-e-relatórios)
 - [Usuários, login e perfis de acesso](#usuários-login-e-perfis-de-acesso)
 - [Guia do usuário e primeiros passos](#guia-do-usuário-e-primeiros-passos)
+- [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd)
 - [Tecnologias](#tecnologias)
 - [Instalação e execução](#instalação-e-execução)
 - [Publicação na web (Render)](#publicação-na-web-render)
@@ -52,6 +53,8 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - Painel com indicadores, itens a repor e lotes vencidos ou próximos do vencimento.
 - Seis relatórios gerenciais, com impressão e **exportação em CSV** (compatível com Excel).
 - Histórico imutável de movimentações para auditoria, com o **usuário** responsável por cada uma.
+- **Adequação à LGPD:** documentos mascarados em listas, relatórios e exportações, registro de
+  acessos a dados pessoais, relatórios sem identificação e anonimização de cadastros.
 - **Login com perfis de acesso** (auxiliar, farmacêutico, administrador), bloqueio após tentativas
   erradas e senha provisória no primeiro acesso.
 
@@ -186,6 +189,24 @@ O ExataMed traz um onboarding em três partes:
 
 ![Página de ajuda do ExataMed](docs/img/ajuda.png)
 
+## Proteção de dados pessoais (LGPD)
+
+O ExataMed trata dados de saúde, que são dados pessoais **sensíveis** pela LGPD (Lei nº 13.709/2018).
+Medidas implementadas:
+
+| Medida | Como funciona |
+|---|---|
+| **Mascaramento** | CPF (`***.982.247-**`), Cartão SUS (`***********5933`), RG e telefone aparecem parcialmente ocultos em listas, na seleção de pacientes, nos relatórios e nos CSV. Completos só na ficha do cadastro e no comprovante de dispensação. |
+| **Registro de acessos** (art. 37) | Tabela `registros_acesso`: quem visualizou a ficha, incluiu, alterou, abriu comprovante, exportou relatório com pacientes ou anonimizou um cadastro, com data, hora e IP. Consulta em *LGPD: registro de acessos* (administrador). |
+| **Relatórios sem identificação** | Opção *Ocultar identificação dos pacientes*: o nome vira um código (`P-000123`) e os documentos são omitidos, na tela e no CSV. |
+| **Anonimização** (arts. 16 e 18) | O administrador anonimiza paciente, médico ou usuário de forma irreversível, informando o motivo. Os dados identificadores são apagados (da data de nascimento fica o ano) e o histórico de estoque é preservado. |
+| **Prazo de guarda** | Quem teve dispensação de medicamento de controle especial (inclusive antimicrobianos) nos últimos 2 anos só pode ser anonimizado após esse prazo (`PRAZO_GUARDA_CONTROLADOS_ANOS` em `exatamed/lgpd.py`). |
+| **Cópias anonimizadas** | `flask --app exatamed anonimizar-banco --confirmar` anonimiza todos os dados pessoais de uma **cópia** do banco, para treinamento e testes (bloqueado com `EXATAMED_ENV=production`). |
+
+Essas funções apoiam a adequação, mas não a substituem: a instituição continua responsável pela
+política de privacidade, pela base legal de cada tratamento, pela indicação do encarregado (DPO)
+e pelo atendimento aos titulares.
+
 ## Tecnologias
 
 - [Python](https://www.python.org/) 3.10+
@@ -298,7 +319,8 @@ Os testes cobrem a baixa PEPS, o bloqueio de lotes vencidos, as transferências,
 alergia, o controle especial, os ajustes de inventário, os seis relatórios, a renderização de
 todas as telas, o login (bloqueio, senha provisória, redirecionamento seguro, CSRF), as permissões
 de cada perfil, a numeração das dispensações (sequência por ano, colisão simultânea), a farmácia
-de origem e a atualização de bancos criados por versões anteriores.
+de origem, as medidas da LGPD (mascaramento, registro de acessos, relatórios anônimos,
+anonimização e prazo de guarda) e a atualização de bancos criados por versões anteriores.
 
 ## Estrutura do projeto
 
@@ -306,6 +328,7 @@ de origem e a atualização de bancos criados por versões anteriores.
 exatamed/
 ├── exatamed/
 │   ├── __init__.py      # fábrica da aplicação, configuração e comandos "demo" e "criar-admin"
+│   ├── lgpd.py          # LGPD: registro de acessos e anonimização
 │   ├── models.py        # modelos: Usuario, Paciente, Medico, Produto, Localizacao, Lote, Dispensacao, Movimentacao
 │   ├── estoque.py       # regras de negócio: entrada, baixa PEPS, transferência, dispensação, inventário
 │   ├── relatorios.py    # análises e relatórios
@@ -335,6 +358,8 @@ Melhorias previstas para próximas versões:
 - [x] Autenticação de usuários e perfis de acesso (farmacêutico, auxiliar, administrador)
 - [x] Registro do usuário em cada movimentação
 - [ ] Recuperação de senha por e-mail
+- [ ] Relatório dos dados de um titular (direito de acesso, art. 18 da LGPD)
+- [ ] Criptografia dos campos sensíveis no banco de dados
 - [ ] Escrituração de controlados e integração com o SNGPC/ANVISA
 - [ ] Devolução de itens não utilizados ao estoque
 - [ ] Leitura de código de barras / DataMatrix na entrada e na dispensação

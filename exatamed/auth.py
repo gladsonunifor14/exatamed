@@ -180,7 +180,12 @@ def usuarios():
 @bp.route("/usuarios/<int:id>/editar", methods=["GET", "POST"])
 @perfil_requerido(Usuario.ADMIN)
 def editar_usuario(id=None):
+    from .lgpd import registrar_acesso
+    from .models import RegistroAcesso
     usuario = db.get_or_404(Usuario, id) if id else Usuario(ativo=True, perfil=Usuario.AUXILIAR)
+    if usuario.anonimizado:
+        flash("Este usuário foi anonimizado e não pode mais ser alterado.", "warning")
+        return redirect(url_for(".usuarios"))
     if request.method == "POST":
         f = request.form
         erros = []
@@ -223,8 +228,12 @@ def editar_usuario(id=None):
                 usuario.bloqueado_ate = None
             db.session.add(usuario)
             db.session.commit()
+            registrar_acesso(RegistroAcesso.ALTERAR if id else RegistroAcesso.INCLUIR, "usuario",
+                             usuario.id, usuario.login)
             flash(f"Usuário {usuario.login} salvo.", "success")
             return redirect(url_for(".usuarios"))
+    if id and request.method == "GET":
+        registrar_acesso(RegistroAcesso.VISUALIZAR, "usuario", usuario.id, usuario.login)
     return render_template("auth/usuario_form.html", usuario=usuario, perfis=Usuario.PERFIS,
                            form=request.form if request.method == "POST" else None)
 

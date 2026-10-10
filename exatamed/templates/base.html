@@ -47,7 +47,8 @@
             <span class="badge bg-light text-dark ms-1">{{ current_user.perfil_descricao }}</span></a>
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{{ url_for('auth.minha_senha') }}"><i class="bi bi-key"></i> Alterar minha senha</a></li>
-            {% if current_user.pode(Usuario.ADMIN) %}<li><a class="dropdown-item" href="{{ url_for('auth.usuarios') }}"><i class="bi bi-people"></i> Usuários</a></li>{% endif %}
+            {% if current_user.pode(Usuario.ADMIN) %}<li><a class="dropdown-item" href="{{ url_for('auth.usuarios') }}"><i class="bi bi-people"></i> Usuários</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('lgpd.acessos') }}"><i class="bi bi-shield-lock"></i> LGPD: registro de acessos</a></li>{% endif %}
             <li><hr class="dropdown-divider"></li>
             <li><form method="post" action="{{ url_for('auth.logout') }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

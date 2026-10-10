@@ -6,6 +6,8 @@ from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from . import validacao
+
 db = SQLAlchemy()
 
 
@@ -22,6 +24,29 @@ def calcular_idade(nascimento, referencia=None):
 class TimestampMixin:
     criado_em = db.Column(db.DateTime, default=datetime.now, nullable=False)
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+
+class DadosPessoaisMixin:
+    """Campos e versões mascaradas (LGPD) comuns a pessoas cadastradas."""
+
+    # Preenchido quando o cadastro é anonimizado (irreversível).
+    anonimizado_em = db.Column(db.DateTime)
+
+    @property
+    def anonimizado(self):
+        return self.anonimizado_em is not None
+
+    @property
+    def cpf_mascarado(self):
+        return validacao.mascarar_cpf(self.cpf) if self.cpf else ""
+
+    @property
+    def rg_mascarado(self):
+        return validacao.mascarar_generico(self.rg) if self.rg else ""
+
+    @property
+    def telefone_mascarado(self):
+        return validacao.mascarar_telefone(self.telefone)
 
 
 class EnderecoMixin:
@@ -69,6 +94,7 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     bloqueado_ate = db.Column(db.DateTime)
     ultimo_acesso = db.Column(db.DateTime)
     ocultar_primeiros_passos = db.Column(db.Boolean, default=False, nullable=False)
+    anonimizado_em = db.Column(db.DateTime)
 
     def definir_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)
@@ -84,6 +110,14 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
         return self.ativo
 
     @property
+    def anonimizado(self):
+        return self.anonimizado_em is not None
+
+    @property
+    def email_mascarado(self):
+        return validacao.mascarar_email(self.email) if self.email else ""
+
+    @property
     def perfil_descricao(self):
         return self.PERFIS.get(self.perfil, self.perfil)
 
@@ -91,7 +125,7 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
         return self.nome
 
 
-class Paciente(TimestampMixin, EnderecoMixin, db.Model):
+class Paciente(DadosPessoaisMixin, TimestampMixin, EnderecoMixin, db.Model):
     __tablename__ = "pacientes"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -117,11 +151,20 @@ class Paciente(TimestampMixin, EnderecoMixin, db.Model):
     def idade(self):
         return calcular_idade(self.data_nascimento)
 
+    @property
+    def cartao_sus_mascarado(self):
+        return validacao.mascarar_cns(self.cartao_sus) if self.cartao_sus else ""
+
+    @property
+    def pseudonimo(self):
+        """Identificador sem dados pessoais, usado em relatórios anonimizados."""
+        return f"P-{self.id:06d}"
+
     def __str__(self):
         return self.nome
 
 
-class Medico(TimestampMixin, EnderecoMixin, db.Model):
+class Medico(DadosPessoaisMixin, TimestampMixin, EnderecoMixin, db.Model):
     __tablename__ = "medicos"
     __table_args__ = (db.UniqueConstraint("crm", "uf_crm", name="uq_medico_crm_uf"),)
 
@@ -348,3 +391,39 @@ def _registrar_usuario(mapper, connection, alvo):
         from flask_login import current_user
         if has_request_context() and current_user.is_authenticated:
             alvo.usuario_id = current_user.id
+
+
+class RegistroAcesso(db.Model):
+    """Trilha de acesso a dados pessoais (LGPD, art. 37): quem viu, alterou, exportou
+    ou anonimizou dados pessoais, e quando."""
+
+    __tablename__ = "registros_acesso"
+
+    VISUALIZAR = "VISUALIZAR"
+    INCLUIR = "INCLUIR"
+    ALTERAR = "ALTERAR"
+    EXPORTAR = "EXPORTAR"
+    ANONIMIZAR = "ANONIMIZAR"
+    ACOES = {VISUALIZAR: "Visualizou", INCLUIR: "Incluiu", ALTERAR: "Alterou", EXPORTAR: "Exportou",
+             ANONIMIZAR: "Anonimizou"}
+    ENTIDADES = {"paciente": "Paciente", "medico": "Médico", "usuario": "Usuário",
+                 "dispensacao": "Dispensação", "relatorio": "Relatório"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), index=True)
+    acao = db.Column(db.String(20), nullable=False)
+    entidade = db.Column(db.String(20), nullable=False, index=True)
+    registro_id = db.Column(db.Integer)
+    descricao = db.Column(db.String(200))
+    ip = db.Column(db.String(45))
+
+    usuario = db.relationship("Usuario")
+
+    @property
+    def acao_descricao(self):
+        return self.ACOES.get(self.acao, self.acao)
+
+    @property
+    def entidade_descricao(self):
+        return self.ENTIDADES.get(self.entidade, self.entidade)
