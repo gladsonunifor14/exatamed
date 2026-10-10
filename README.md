@@ -39,7 +39,8 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 
 ## Funcionalidades
 
-- Cadastro de **pacientes**, **médicos**, **medicamentos/materiais** e **localizações**.
+- Cadastro de **pacientes**, **médicos**, **medicamentos/materiais** e **localizações**, com
+  **endereço preenchido automaticamente pelo CEP** (ViaCEP).
 - Estoque por **lote, validade e localização**, com custo unitário por camada.
 - **Entradas** (nota fiscal/empenho), **saídas avulsas** (consumo de setor, perdas, avarias),
   **transferências entre locais** e **dispensação ao paciente**.
@@ -102,8 +103,10 @@ estoque.
 
 ## Dispensação e segurança do paciente
 
-- Seleção do paciente, médico, nº da prescrição, farmácia de origem e **local de dispensação**
-  (leito, sala etc.), com vários itens por dispensação.
+- Seleção do paciente, médico, nº da prescrição, farmácia de origem (**apenas Farmácia SUS ou
+  Farmácia Particular**) e **local de dispensação** (leito, sala etc.), com vários itens por dispensação.
+- **Numeração automática** no formato número/ano (ex.: **00001/2026**), reiniciada a cada ano e
+  protegida contra duplicidade por índice único no banco.
 - Ao escolher paciente e produto, a tela mostra **conflitos de alergia**, se o item é de
   controle especial e o saldo disponível na origem.
 - A verificação compara as alergias do paciente com o nome comercial, o princípio ativo e os
@@ -294,7 +297,8 @@ pytest
 Os testes cobrem a baixa PEPS, o bloqueio de lotes vencidos, as transferências, os alertas de
 alergia, o controle especial, os ajustes de inventário, os seis relatórios, a renderização de
 todas as telas, o login (bloqueio, senha provisória, redirecionamento seguro, CSRF), as permissões
-de cada perfil e a atualização de bancos criados por versões anteriores.
+de cada perfil, a numeração das dispensações (sequência por ano, colisão simultânea), a farmácia
+de origem e a atualização de bancos criados por versões anteriores.
 
 ## Estrutura do projeto
 

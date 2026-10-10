@@ -247,8 +247,12 @@ class Lote(db.Model):
 
 class Dispensacao(TimestampMixin, db.Model):
     __tablename__ = "dispensacoes"
+    # Numeração sequencial reiniciada a cada ano: 00001/2026, 00002/2026...
+    __table_args__ = (db.Index("uq_dispensacao_numero_ano", "ano", "numero", unique=True),)
 
     id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.Integer)
+    ano = db.Column(db.Integer)
     data = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
     paciente_id = db.Column(db.Integer, db.ForeignKey("pacientes.id"), nullable=False, index=True)
     medico_id = db.Column(db.Integer, db.ForeignKey("medicos.id"))
@@ -271,6 +275,17 @@ class Dispensacao(TimestampMixin, db.Model):
     @property
     def custo_total(self):
         return sum(m.custo_total for m in self.movimentacoes)
+
+    @property
+    def numero_formatado(self):
+        if self.numero is None:
+            return str(self.id)
+        return f"{self.numero:05d}/{self.ano}"
+
+    @staticmethod
+    def proximo_numero(ano):
+        ultimo = db.session.query(db.func.max(Dispensacao.numero)).filter(Dispensacao.ano == ano).scalar()
+        return (ultimo or 0) + 1
 
 
 class Movimentacao(db.Model):

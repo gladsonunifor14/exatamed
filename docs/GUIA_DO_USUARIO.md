@@ -81,7 +81,8 @@ principais. Cadastre os locais para onde os itens são dispensados ou transferid
    quiser, uma descrição.
 
 Um local que já tem movimentações não pode ser excluído, mas pode ser **desativado**: basta
-desmarcar *Ativa*.
+desmarcar *Ativa*. Incluir, editar e excluir localizações é permitido apenas aos perfis
+**farmacêutico** e **administrador**; o auxiliar só consulta.
 
 ### 3. Medicamentos e materiais
 
@@ -106,6 +107,12 @@ cada entrada de estoque, porque o mesmo produto pode ter vários lotes.
 - **Pacientes:** em **Cadastros → Pacientes**. O sistema confere se o CPF e o Cartão Nacional
   do SUS são válidos e calcula a idade pela data de nascimento. Para menores de 18 anos, o nome
   do responsável e o grau de parentesco são obrigatórios.
+
+**Endereço pelo CEP:** ao digitar os 8 números do CEP, o sistema preenche sozinho o logradouro,
+o bairro, a cidade e a UF. Depois, informe o número e, se houver, o complemento. Se o CEP não
+for encontrado ou a consulta não responder, preencha o endereço manualmente.
+
+![Endereço preenchido pelo CEP](img/cep.png)
 
 > **Registre as alergias conhecidas** separadas por vírgula (por exemplo *dipirona, penicilina,
 > látex*). Elas são conferidas automaticamente a cada dispensação.
@@ -133,9 +140,12 @@ Com isso, o quadro de primeiros passos fica completo.
 3. Informe o **médico prescritor** e o **número da prescrição**, obrigatórios para itens de
    controle especial.
 4. Escolha a **farmácia de origem** (de onde sai o estoque) e o **local de dispensação** (leito,
-   sala ou setor que recebe os itens).
+   sala ou setor que recebe os itens). A origem é sempre a **Farmácia SUS** ou a **Farmácia
+   Particular**.
 5. Adicione os itens e as quantidades. Use **Adicionar item** para incluir mais linhas.
-6. Clique em **Registrar dispensação**. O comprovante abre em seguida e pode ser impresso.
+6. Clique em **Registrar dispensação**. O sistema gera o **número da dispensação** no formato
+   número/ano (por exemplo **00001/2026**). A numeração recomeça em 00001 a cada ano. O
+   comprovante abre em seguida e pode ser impresso.
 
 Enquanto você preenche, cada item mostra o **saldo disponível na origem**, se é de **controle
 especial** e se há **conflito com as alergias** do paciente.
@@ -150,6 +160,7 @@ especial** e se há **conflito com as alergias** do paciente.
 | **Controle especial** | Informe o médico e o número da prescrição. Se você é auxiliar, peça a um farmacêutico para fazer a dispensação |
 | **Saldo insuficiente** | A origem não tem quantidade suficiente em lotes dentro da validade. Confira em **Estoque → Lotes e saldos** ou faça uma transferência de outro local |
 | **Local igual à origem** | O local de dispensação precisa ser diferente da farmácia de origem |
+| **Origem não permitida** | A dispensação só sai da Farmácia SUS ou da Farmácia Particular. Para atender um setor a partir do estoque dele, faça antes uma transferência de volta para a farmácia |
 
 ![Alerta de alergia](img/alerta_alergia.png)
 
@@ -244,6 +255,11 @@ Provavelmente parte do saldo está em lotes vencidos, que não podem ser dispens
 A verificação compara as alergias do paciente com o nome comercial, o princípio ativo e os
 alertas de alergia do produto. Confira se as alergias estão separadas por vírgula e se o produto
 tem os alertas preenchidos (por exemplo *penicilinas, betalactâmicos*).
+
+**Como encontro uma dispensação pelo número?**
+O relatório **Resumo de dispensação por data** lista o número de cada dispensação do período. Na
+tela **Estoque → Movimentações** e nas *Últimas dispensações* do painel, clique no número para
+abrir o comprovante.
 
 **Onde vejo quem fez uma movimentação?**
 Em **Estoque → Movimentações**, na coluna *Usuário*, e no comprovante de cada dispensação.

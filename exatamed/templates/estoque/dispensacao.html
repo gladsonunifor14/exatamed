@@ -17,7 +17,7 @@
       {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
     </select><div class="form-text">Obrigatório para itens de controle especial{% if not current_user.pode(Usuario.FARMACEUTICO) %}, que só o farmacêutico pode dispensar{% endif %}.</div></div>
   <div class="col-md-3"><label class="form-label">Nº da prescrição</label><input class="form-control" name="prescricao" maxlength="50" value="{{ form.prescricao }}"></div>
-  <div class="col-md-4"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(locais, 'origem_id', form.origem_id) }}</div>
+  <div class="col-md-4"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(origens, 'origem_id', form.origem_id) }}</div>
   <div class="col-md-4"><label class="form-label obrigatorio">Local de dispensação</label>{{ select_local(locais, 'destino_id', form.destino_id) }}</div>
   <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" value="{{ current_user.nome }}" disabled></div>
 

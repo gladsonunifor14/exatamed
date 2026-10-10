@@ -189,6 +189,8 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
     """
     if not itens:
         raise EstoqueError("Inclua ao menos um item na dispensação.")
+    if not origem.principal:
+        raise EstoqueError("A dispensação só pode sair da Farmácia SUS ou da Farmácia Particular.")
     if origem.id == destino.id:
         raise EstoqueError("O local de dispensação deve ser diferente da farmácia de origem.")
     conflitos = {}
@@ -223,6 +225,8 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
     if conflitos:
         alerta = "Dispensado ciente de alerta de alergia. "
     dispensacao = Dispensacao(
+        ano=data.year,
+        numero=Dispensacao.proximo_numero(data.year),
         data=data,
         paciente=paciente,
         medico=medico,

@@ -13,7 +13,7 @@
   <thead class="table-light"><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Lote</th><th>Local</th><th>Destino</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit.</th><th class="text-end">Total</th><th>Documento / motivo</th><th>Usuário</th></tr></thead>
   <tbody>
   {% for m in pagina.items %}
-    <tr><td class="text-nowrap">{{ m.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ m.tipo_descricao }}{% if m.dispensacao_id %} <a href="{{ url_for('estoque.ver_dispensacao', id=m.dispensacao_id) }}">#{{ m.dispensacao_id }}</a>{% endif %}</td>
+    <tr><td class="text-nowrap">{{ m.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ m.tipo_descricao }}{% if m.dispensacao_id %} <a href="{{ url_for('estoque.ver_dispensacao', id=m.dispensacao_id) }}">nº {{ m.dispensacao.numero_formatado }}</a>{% endif %}</td>
       <td>{{ m.produto }}</td><td>{{ m.lote.numero_lote }}</td><td>{{ m.localizacao }}</td><td>{{ m.destino or '' }}</td>
       <td class="text-end {{ 'text-success' if m.quantidade > 0 else 'text-danger' }}">{{ '%+g'|format(m.quantidade) }}</td>
       <td class="text-end">{{ m.custo_unitario|moeda }}</td><td class="text-end">{{ m.custo_total|moeda }}</td>

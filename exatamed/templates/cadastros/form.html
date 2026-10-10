@@ -40,3 +40,8 @@
   <button class="btn btn-exata"><i class="bi bi-check-lg"></i> Salvar</button>
 </div></form>
 {% endblock %}
+{% block scripts %}
+{% if cadastro.campos|selectattr('nome', 'equalto', 'cep')|list %}
+<script src="{{ url_for('static', filename='js/cep.js') }}"></script>
+{% endif %}
+{% endblock %}
