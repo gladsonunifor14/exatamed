@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 from flask_login import current_user
+from sqlalchemy.exc import IntegrityError
 
 from . import estoque, relatorios
 from .ajuda import primeiros_passos
@@ -155,43 +156,56 @@ def transferencia():
     return _executar(operacao, "Transferência registrada.", "estoque/transferencia.html")
 
 
+def _registrar_dispensacao():
+    paciente = _obter(Paciente, "paciente_id", rotulo="o paciente")
+    itens = []
+    for pid, qtd in zip(request.form.getlist("item_produto"), request.form.getlist("item_quantidade")):
+        if not pid and not qtd:
+            continue
+        produto = db.session.get(Produto, int(pid)) if pid else None
+        if not produto:
+            raise EstoqueError("Selecione o produto de cada item.")
+        try:
+            quantidade = float(qtd.replace(",", "."))
+        except ValueError:
+            raise EstoqueError(f"Quantidade inválida para {produto}.")
+        itens.append((produto, quantidade))
+    farmaceutico = current_user.pode(Usuario.FARMACEUTICO)
+    controlados = [str(p) for p, _ in itens if p.controlado]
+    if controlados and not farmaceutico:
+        raise EstoqueError("Itens de controle especial só podem ser dispensados por farmacêutico: "
+                           + ", ".join(controlados) + ".")
+    return estoque.dispensar(
+        paciente,
+        _obter(Localizacao, "origem_id", rotulo="a farmácia de origem"),
+        _obter(Localizacao, "destino_id", rotulo="o local de dispensação"),
+        itens,
+        medico=_obter(Medico, "medico_id", obrigatorio=False),
+        prescricao=_texto("prescricao", Dispensacao.prescricao, "Nº da prescrição"),
+        observacao=request.form.get("observacao") or None,
+        responsavel=current_user.nome[:Dispensacao.responsavel.type.length],
+        # Só o farmacêutico pode liberar uma dispensação com alerta de alergia.
+        confirmar_alergia=farmaceutico and bool(request.form.get("confirmar_alergia")),
+    )
+
+
 @bp_estoque.route("/dispensacao", methods=["GET", "POST"])
 def dispensacao():
     alerta = None
     if request.method == "POST":
         try:
-            paciente = _obter(Paciente, "paciente_id", rotulo="o paciente")
-            itens = []
-            for pid, qtd in zip(request.form.getlist("item_produto"), request.form.getlist("item_quantidade")):
-                if not pid and not qtd:
-                    continue
-                produto = db.session.get(Produto, int(pid)) if pid else None
-                if not produto:
-                    raise EstoqueError("Selecione o produto de cada item.")
+            # Duas dispensações gravadas ao mesmo tempo podem disputar o mesmo número
+            # (o índice único do banco impede a duplicidade); nesse caso, tenta de novo.
+            for tentativa in range(3):
                 try:
-                    quantidade = float(qtd.replace(",", "."))
-                except ValueError:
-                    raise EstoqueError(f"Quantidade inválida para {produto}.")
-                itens.append((produto, quantidade))
-            farmaceutico = current_user.pode(Usuario.FARMACEUTICO)
-            controlados = [str(p) for p, _ in itens if p.controlado]
-            if controlados and not farmaceutico:
-                raise EstoqueError("Itens de controle especial só podem ser dispensados por farmacêutico: "
-                                   + ", ".join(controlados) + ".")
-            disp = estoque.dispensar(
-                paciente,
-                _obter(Localizacao, "origem_id", rotulo="a farmácia de origem"),
-                _obter(Localizacao, "destino_id", rotulo="o local de dispensação"),
-                itens,
-                medico=_obter(Medico, "medico_id", obrigatorio=False),
-                prescricao=_texto("prescricao", Dispensacao.prescricao, "Nº da prescrição"),
-                observacao=request.form.get("observacao") or None,
-                responsavel=current_user.nome[:Dispensacao.responsavel.type.length],
-                # Só o farmacêutico pode liberar uma dispensação com alerta de alergia.
-                confirmar_alergia=farmaceutico and bool(request.form.get("confirmar_alergia")),
-            )
-            db.session.commit()
-            flash(f"Dispensação nº {disp.id} registrada para {paciente.nome}. "
+                    disp = _registrar_dispensacao()
+                    db.session.commit()
+                    break
+                except IntegrityError:
+                    db.session.rollback()
+                    if tentativa == 2:
+                        raise EstoqueError("Não foi possível numerar a dispensação. Tente novamente.")
+            flash(f"Dispensação nº {disp.numero_formatado} registrada para {disp.paciente.nome}. "
                   f"Custo PEPS: R$ {disp.custo_total:,.2f}.", "success")
             return redirect(url_for(".ver_dispensacao", id=disp.id))
         except EstoqueError as erro:
@@ -200,8 +214,10 @@ def dispensacao():
                 alerta = str(erro)
             else:
                 flash(str(erro), "danger")
-    return render_template("estoque/dispensacao.html", alerta=alerta, form=request.form,
-                           **_contexto_formularios())
+    contexto = _contexto_formularios()
+    # Só as farmácias principais (Farmácia SUS e Farmácia Particular) podem ser origem.
+    contexto["origens"] = [l for l in contexto["locais"] if l.principal]
+    return render_template("estoque/dispensacao.html", alerta=alerta, form=request.form, **contexto)
 
 
 @bp_estoque.route("/dispensacao/<int:id>")

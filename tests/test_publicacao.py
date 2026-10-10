@@ -35,7 +35,10 @@ def test_banco_da_versao_anterior_ganha_colunas_de_auditoria(tmp_path):
     arquivo = tmp_path / "antigo.db"
     con = sqlite3.connect(arquivo)
     con.execute("CREATE TABLE movimentacoes (id INTEGER PRIMARY KEY, tipo VARCHAR(20))")
-    con.execute("CREATE TABLE dispensacoes (id INTEGER PRIMARY KEY)")
+    con.execute("CREATE TABLE dispensacoes (id INTEGER PRIMARY KEY, data DATETIME)")
+    con.executemany("INSERT INTO dispensacoes (id, data) VALUES (?, ?)", [
+        (1, "2025-12-30 10:00:00"), (2, "2026-01-02 09:00:00"), (3, "2025-12-31 08:00:00"),
+        (4, "2026-01-05 11:00:00")])
     con.commit()
     con.close()
     app = create_app({"SQLALCHEMY_DATABASE_URI": f"sqlite:///{arquivo}"})
@@ -43,3 +46,6 @@ def test_banco_da_versao_anterior_ganha_colunas_de_auditoria(tmp_path):
         for tabela in ("movimentacoes", "dispensacoes"):
             colunas = {c["name"] for c in db.inspect(db.engine).get_columns(tabela)}
             assert "usuario_id" in colunas
+        # Dispensações antigas recebem numeração por ano, em ordem cronológica.
+        numeros = db.session.execute(db.text("SELECT id, numero, ano FROM dispensacoes ORDER BY id")).all()
+        assert [tuple(n) for n in numeros] == [(1, 1, 2025), (2, 1, 2026), (3, 2, 2025), (4, 2, 2026)]

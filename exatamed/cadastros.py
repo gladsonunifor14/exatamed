@@ -47,7 +47,7 @@ class Campo:
 
 def _campos_endereco():
     return [
-        Campo("cep", "CEP", largura=2, ajuda="00000-000", secao="Endereço"),
+        Campo("cep", "CEP", largura=2, ajuda="Digite o CEP para preencher o endereço.", secao="Endereço"),
         Campo("logradouro", "Logradouro", largura=6),
         Campo("numero", "Número", largura=2),
         Campo("complemento", "Complemento", largura=2),

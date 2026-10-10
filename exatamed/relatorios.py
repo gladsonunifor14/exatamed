@@ -93,7 +93,7 @@ def resumo_dispensacao(inicio, fim):
         .order_by(Dispensacao.data).all()
     por_data = defaultdict(lambda: {"n": 0, "pacientes": set(), "itens": 0, "custo": 0.0})
     detalhe = Tabela("Dispensações do período", [
-        Coluna("Nº", "numero"), Coluna("Data/hora"), Coluna("Paciente"), Coluna("Médico"),
+        Coluna("Nº"), Coluna("Data/hora"), Coluna("Paciente"), Coluna("Médico"),
         Coluna("Origem"), Coluna("Local de dispensação"), Coluna("Prescrição"),
         Coluna("Itens", "numero"), Coluna("Custo PEPS", "moeda"),
     ])
@@ -105,7 +105,7 @@ def resumo_dispensacao(inicio, fim):
         g["itens"] += len(produtos)
         g["custo"] += d.custo_total
         detalhe.linhas.append([
-            d.id, d.data.strftime("%d/%m/%Y %H:%M"), d.paciente.nome,
+            d.numero_formatado, d.data.strftime("%d/%m/%Y %H:%M"), d.paciente.nome,
             d.medico.nome if d.medico else "", d.origem.nome, d.destino.nome,
             d.prescricao or "", len(produtos), d.custo_total,
         ])

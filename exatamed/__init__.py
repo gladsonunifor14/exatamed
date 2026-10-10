@@ -33,6 +33,8 @@ COLUNAS_NOVAS = [
     ("movimentacoes", "usuario_id", "INTEGER REFERENCES usuarios(id)"),
     ("dispensacoes", "usuario_id", "INTEGER REFERENCES usuarios(id)"),
     ("usuarios", "ocultar_primeiros_passos", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("dispensacoes", "numero", "INTEGER"),
+    ("dispensacoes", "ano", "INTEGER"),
 ]
 
 
@@ -47,6 +49,29 @@ def atualizar_esquema():
         if tabela in tabelas and coluna not in {c["name"] for c in inspetor.get_columns(tabela)}:
             with db.engine.begin() as conexao:
                 conexao.execute(db.text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
+    numerar_dispensacoes_antigas()
+
+
+def numerar_dispensacoes_antigas():
+    """Dá número no formato 00001/ano às dispensações registradas antes da numeração existir."""
+    with db.engine.begin() as conexao:
+        pendentes = conexao.execute(db.text(
+            "SELECT id, data FROM dispensacoes WHERE numero IS NULL ORDER BY data, id")).all()
+        proximos = {}
+        for id_, data in pendentes:
+            # O SQLite devolve a data como texto; o PostgreSQL, como datetime.
+            ano = data.year if hasattr(data, "year") else int(str(data)[:4])
+            if ano not in proximos:
+                ultimo = conexao.execute(db.text("SELECT MAX(numero) FROM dispensacoes WHERE ano = :ano"),
+                                         {"ano": ano}).scalar()
+                proximos[ano] = (ultimo or 0) + 1
+            conexao.execute(db.text("UPDATE dispensacoes SET ano = :ano, numero = :numero WHERE id = :id"),
+                            {"ano": ano, "numero": proximos[ano], "id": id_})
+            proximos[ano] += 1
+    # Em bancos novos o create_all já criou o índice; em bancos antigos, cria agora.
+    with db.engine.begin() as conexao:
+        conexao.execute(db.text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_dispensacao_numero_ano ON dispensacoes (ano, numero)"))
 
 
 def url_banco(instance_path):
