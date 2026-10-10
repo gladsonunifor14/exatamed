@@ -10,3 +10,9 @@ body { background: #f4f7f7; }
 .secao-form { border-bottom: 1px solid #dee2e6; color: var(--exata-escuro); padding-bottom: .25rem; margin: 1.25rem 0 .75rem; }
 @media print { body { background: #fff; } .card { box-shadow: none; } }
 .text-exata { color: var(--exata); }
+.guia img { max-width: 100%; border: 1px solid #dee2e6; border-radius: .5rem; margin: .5rem 0 1rem; }
+.guia h2 { margin-top: 2rem; padding-bottom: .3rem; border-bottom: 1px solid #dee2e6; color: var(--exata-escuro); scroll-margin-top: 1rem; }
+.guia h3 { margin-top: 1.5rem; font-size: 1.15rem; scroll-margin-top: 1rem; }
+.guia blockquote { border-left: 4px solid var(--exata); background: #f1f8f8; padding: .75rem 1rem; border-radius: .25rem; }
+.guia blockquote p:last-child { margin-bottom: 0; }
+.sumario-ajuda .list-group-item { font-size: .9rem; padding: .4rem 1rem; }

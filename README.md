@@ -15,6 +15,10 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 
 ---
 
+> 📘 **Vai usar o sistema?** Leia o [Guia do usuário](docs/GUIA_DO_USUARIO.md): primeiro acesso,
+> roteiro de implantação, dispensação, relatórios e perguntas frequentes. O mesmo guia está dentro
+> do sistema, no menu **Ajuda**.
+
 ## Sumário
 
 - [Funcionalidades](#funcionalidades)
@@ -23,6 +27,7 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - [Dispensação e segurança do paciente](#dispensação-e-segurança-do-paciente)
 - [Análises e relatórios](#análises-e-relatórios)
 - [Usuários, login e perfis de acesso](#usuários-login-e-perfis-de-acesso)
+- [Guia do usuário e primeiros passos](#guia-do-usuário-e-primeiros-passos)
 - [Tecnologias](#tecnologias)
 - [Instalação e execução](#instalação-e-execução)
 - [Publicação na web (Render)](#publicação-na-web-render)
@@ -161,6 +166,23 @@ Segurança:
   o administrador é criado na inicialização, se ainda não houver usuários. Depois, entre como
   administrador e cadastre os demais usuários.
 
+## Guia do usuário e primeiros passos
+
+O ExataMed traz um onboarding em três partes:
+
+1. **[Guia do usuário](docs/GUIA_DO_USUARIO.md)** (`docs/GUIA_DO_USUARIO.md`): passo a passo
+   ilustrado para cada perfil, com o roteiro de implantação, a dispensação no dia a dia, os
+   relatórios, o método PEPS e as perguntas frequentes.
+2. **Página Ajuda dentro do sistema:** exibe o mesmo arquivo do guia, com sumário lateral.
+   Existe um texto só: atualizar o guia no repositório atualiza também a ajuda do sistema.
+3. **Primeiros passos no painel:** logo após a instalação, o administrador vê um checklist de
+   implantação (usuários, locais, medicamentos, estoque mínimo e máximo, médicos e pacientes,
+   primeira entrada e primeira dispensação). Cada etapa é marcada sozinha quando os dados são
+   cadastrados e tem atalhos para a tela certa e para o trecho do guia. O quadro some quando tudo
+   estiver concluído e pode ser ocultado e reexibido.
+
+![Página de ajuda do ExataMed](docs/img/ajuda.png)
+
 ## Tecnologias
 
 - [Python](https://www.python.org/) 3.10+
@@ -169,6 +191,7 @@ Segurança:
 - [gunicorn](https://gunicorn.org/) como servidor de produção
 - [Bootstrap](https://getbootstrap.com/) 5 e Bootstrap Icons (via CDN)
 - [Flask-Login](https://flask-login.readthedocs.io/) e [Flask-WTF](https://flask-wtf.readthedocs.io/) (login e proteção CSRF)
+- [Python-Markdown](https://python-markdown.github.io/) (página de ajuda)
 - [pytest](https://pytest.org/) para os testes
 
 ## Instalação e execução
@@ -282,6 +305,7 @@ exatamed/
 │   ├── models.py        # modelos: Usuario, Paciente, Medico, Produto, Localizacao, Lote, Dispensacao, Movimentacao
 │   ├── estoque.py       # regras de negócio: entrada, baixa PEPS, transferência, dispensação, inventário
 │   ├── relatorios.py    # análises e relatórios
+│   ├── ajuda.py         # página de ajuda e checklist de primeiros passos
 │   ├── auth.py          # login, perfis de acesso e gestão de usuários
 │   ├── cadastros.py     # CRUD genérico dos cadastros e validações
 │   ├── validacao.py     # CPF, CEP e Cartão Nacional de Saúde
@@ -290,7 +314,9 @@ exatamed/
 │   ├── templates/       # páginas HTML (Jinja2)
 │   └── static/          # estilos
 ├── tests/               # testes automatizados (pytest)
-├── docs/img/            # capturas de tela
+├── docs/
+│   ├── GUIA_DO_USUARIO.md  # guia do usuário (também exibido no menu Ajuda)
+│   └── img/                # capturas de tela
 ├── render.yaml          # configuração de publicação no Render
 ├── requirements.txt
 ├── requirements-dev.txt
