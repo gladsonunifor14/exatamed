@@ -11,13 +11,11 @@
 import secrets
 from datetime import date, datetime, timedelta
 
-from flask import (Blueprint, abort, flash, has_request_context, redirect, render_template, request,
-                   url_for)
+from flask import Blueprint, abort, flash, has_request_context, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from .auth import perfil_requerido
-from .models import (Dispensacao, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario,
-                     db)
+from .models import Dispensacao, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario, db
 
 bp = Blueprint("lgpd", __name__, url_prefix="/lgpd")
 
@@ -116,6 +114,7 @@ def aplicar_anonimizacao_usuario(usuario):
     usuario.login = f"anonimo-{usuario.id}"
     usuario.email = usuario.registro_profissional = None
     usuario.ativo = False
+    usuario.encerrar_sessoes()
     usuario.definir_senha(secrets.token_urlsafe(32))
     usuario.anonimizado_em = datetime.now()
     # O nome também fica gravado como "responsável" nas dispensações que ele registrou.
@@ -165,6 +164,8 @@ def anonimizar_banco():
     Dispensacao.query.update({"observacao": None}, synchronize_session=False)
     # O registro de acessos identifica pessoas e o comportamento delas no sistema.
     RegistroAcesso.query.delete()
+    from .auditoria import reiniciar_cadeia
+    reiniciar_cadeia("registros_acesso")
     db.session.commit()
     return totais
 

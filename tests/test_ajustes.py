@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from exatamed import estoque
 from exatamed.estoque import EstoqueError
@@ -45,7 +46,7 @@ def test_banco_impede_numero_repetido_no_mesmo_ano(base):
     repetida = Dispensacao(numero=1, ano=2026, paciente=base["paciente"], origem=base["sus"],
                            destino=base["leito"])
     db.session.add(repetida)
-    with pytest.raises(Exception):
+    with pytest.raises(IntegrityError):
         db.session.commit()
     db.session.rollback()
 

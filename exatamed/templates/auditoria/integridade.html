@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Integridade{% endblock %}
+{% block conteudo %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0"><i class="bi bi-shield-check"></i> Integridade dos registros</h1>
+  <a class="btn btn-exata" href="{{ url_for('auditoria.integridade', verificar=1) }}"><i class="bi bi-arrow-repeat"></i> Verificar agora</a>
+</div>
+<div class="card card-body small mb-4">
+  <p class="mb-2">Movimentações de estoque, acessos a dados pessoais e a trilha de auditoria formam <strong>cadeias seladas</strong>:
+    cada registro tem um número de sequência e uma assinatura que depende do registro anterior e de uma chave guardada fora do banco.
+    A verificação recalcula todas as assinaturas e aponta registros <strong>alterados, removidos ou inseridos</strong> diretamente no banco.</p>
+  <p class="mb-0">Também confere se o <strong>saldo de cada lote</strong> é igual à soma das suas movimentações. A mesma verificação pode ser
+    agendada pelo comando <code>flask --app exatamed verificar-integridade</code>, que termina com erro se encontrar problemas.</p>
+</div>
+{% if resultado %}
+<div class="alert {{ 'alert-success' if resultado.ok else 'alert-danger' }}">
+  <strong>{{ 'Nenhum problema encontrado.' if resultado.ok else 'Foram encontrados problemas de integridade.' }}</strong>
+  Verificação feita em {{ resultado.data|data('%d/%m/%Y %H:%M:%S') }}.
+  {% if not resultado.ok %}Preserve o banco como está, registre a ocorrência e acione o responsável técnico (veja o runbook de operação).{% endif %}
+</div>
+<div class="row g-3">
+  {% for c in resultado.cadeias %}
+  <div class="col-md-4"><div class="card h-100 border-start border-4 {{ 'border-success' if c.ok else 'border-danger' }}"><div class="card-body">
+    <h2 class="h6">{% if c.ok %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-octagon-fill text-danger"></i>{% endif %} {{ c.descricao }}</h2>
+    <div class="text-muted small mb-2">{{ c.total }} registro(s) selado(s)</div>
+    {% for p in c.problemas %}<div class="small text-danger">• {{ p }}</div>{% endfor %}
+  </div></div></div>
+  {% endfor %}
+</div>
+<div class="card mt-4">
+  <div class="card-header fw-semibold">{% if resultado.lotes %}<i class="bi bi-x-octagon-fill text-danger"></i>{% else %}<i class="bi bi-check-circle-fill text-success"></i>{% endif %} Saldos dos lotes</div>
+  {% if resultado.lotes %}
+  <div class="table-responsive"><table class="table table-sm mb-0">
+    <thead class="table-light"><tr><th>Produto</th><th>Lote</th><th>Local</th><th class="text-end">Saldo gravado</th><th class="text-end">Soma das movimentações</th></tr></thead>
+    <tbody>{% for i in resultado.lotes %}<tr class="table-danger"><td>{{ i.lote.produto }}</td><td>{{ i.lote.numero_lote }}</td><td>{{ i.lote.localizacao }}</td>
+      <td class="text-end">{{ i.saldo|numero }}</td><td class="text-end">{{ i.movimentacoes|numero }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="card-body text-muted">Todos os saldos conferem com as movimentações.</div>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

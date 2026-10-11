@@ -6,8 +6,8 @@ disponível dentro do sistema, no menu **Ajuda**.
 | Se você é... | Comece por |
 |---|---|
 | **Auxiliar de farmácia** | [Primeiro acesso](#primeiro-acesso), [Conhecendo o painel](#conhecendo-o-painel) e [Dispensação no dia a dia](#dispensação-no-dia-a-dia) |
-| **Farmacêutico(a)** | Os itens acima e também [Outras operações de estoque](#outras-operações-de-estoque) e [Relatórios](#relatórios) |
-| **Administrador(a)** | [Roteiro de implantação](#roteiro-de-implantação-administrador), [Gestão de usuários](#gestão-de-usuários-administrador) e [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd) |
+| **Farmacêutico(a)** | Os itens acima e também [Devolução de dispensação](#devolução-de-dispensação), [Outras operações de estoque](#outras-operações-de-estoque) e [Relatórios](#relatórios) |
+| **Administrador(a)** | [Roteiro de implantação](#roteiro-de-implantação-administrador), [Gestão de usuários](#gestão-de-usuários-administrador), [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd) e [Auditoria e integridade](#auditoria-e-integridade-administrador) |
 
 ## Primeiro acesso
 
@@ -136,7 +136,13 @@ Com isso, o quadro de primeiros passos fica completo.
 ## Dispensação no dia a dia
 
 1. Acesse **Dispensação** no menu.
-2. Escolha o **paciente**. As alergias registradas aparecem logo abaixo do nome.
+2. No campo **Paciente**, digite parte do nome, do CPF ou do Cartão SUS (pelo menos 2
+   caracteres) e clique no paciente na lista. A lista mostra o CPF parcialmente oculto, a data
+   de nascimento e as **alergias**, para conferir que é a pessoa certa. As alergias também
+   aparecem abaixo do campo depois da escolha.
+
+   ![Busca de paciente](img/busca_paciente.png)
+
 3. Informe o **médico prescritor** e o **número da prescrição**, obrigatórios para itens de
    controle especial.
 4. Escolha a **farmácia de origem** (de onde sai o estoque) e o **local de dispensação** (leito,
@@ -158,13 +164,36 @@ especial** e se há **conflito com as alergias** do paciente.
 |---|---|
 | **Alerta de alergia** | Revise a prescrição com o médico. Se a dispensação for mantida, um **farmacêutico** marca a confirmação de ciência e envia novamente. A confirmação fica registrada na observação |
 | **Controle especial** | Informe o médico e o número da prescrição. Se você é auxiliar, peça a um farmacêutico para fazer a dispensação |
-| **Saldo insuficiente** | A origem não tem quantidade suficiente em lotes dentro da validade. Confira em **Estoque → Lotes e saldos** ou faça uma transferência de outro local |
+| **Saldo insuficiente** | A origem não tem quantidade suficiente em lotes dentro da validade e não bloqueados. Confira em **Estoque → Lotes e saldos** ou faça uma transferência de outro local |
+| **O saldo do lote mudou durante a operação** | Outra pessoa movimentou o mesmo lote no mesmo instante. Nada foi gravado: confira e registre de novo |
 | **Local igual à origem** | O local de dispensação precisa ser diferente da farmácia de origem |
 | **Origem não permitida** | A dispensação só sai da Farmácia SUS ou da Farmácia Particular. Para atender um setor a partir do estoque dele, faça antes uma transferência de volta para a farmácia |
 
 ![Alerta de alergia](img/alerta_alergia.png)
 
-Lotes vencidos nunca são dispensados, mesmo que tenham saldo.
+Lotes vencidos ou bloqueados nunca são dispensados, mesmo que tenham saldo.
+
+## Devolução de dispensação
+
+Use quando o paciente não recebeu tudo o que foi dispensado (prescrição suspensa, alta, troca de
+medicamento) ou quando a dispensação foi registrada errada. Só o **farmacêutico** registra
+devoluções.
+
+1. Abra o comprovante da dispensação (pelo painel, pelas movimentações ou logo após dispensar) e
+   clique em **Registrar devolução**.
+2. Informe a quantidade devolvida de cada item, ou marque **Devolver todos os itens pendentes**
+   para o estorno total.
+3. Informe o **motivo** e clique em **Registrar devolução**.
+
+![Registro de devolução](img/devolucao.png)
+
+Os itens voltam ao **mesmo lote**, com o **mesmo custo** da saída. A dispensação original não é
+alterada nem apagada: a devolução fica registrada como uma nova movimentação, e o comprovante
+passa a mostrar a situação (*Devolução parcial* ou *Devolvida integralmente*), o custo líquido e
+o histórico de devoluções. Os relatórios de consumo mostram valores líquidos (dispensado menos
+devolvido). Não é possível devolver mais do que foi dispensado.
+
+![Comprovante com devolução](img/comprovante_devolucao.png)
 
 ## Outras operações de estoque
 
@@ -173,6 +202,7 @@ Lotes vencidos nunca são dispensados, mesmo que tenham saldo.
 | **Transferência** | Estoque → Transferência | Todos | Mover itens entre locais (por exemplo, da farmácia para a UTI). Lote, validade e custo são mantidos |
 | **Saída avulsa** | Estoque → Saída avulsa | Farmacêutico | Consumo de setor, perda, avaria, quebra ou devolução ao fornecedor. O motivo é obrigatório |
 | **Contagem de inventário** | Estoque → Contagem de inventário | Farmacêutico | Conferir o estoque físico de um local e corrigir as diferenças |
+| **Bloqueio de lote** | Estoque → Lotes e saldos → cadeado | Farmacêutico | Recall do fabricante, alerta ou interdição sanitária, quarentena |
 | **Lotes e saldos** | Estoque → Lotes e saldos | Todos | Ver o saldo de cada lote, com validade e custo |
 | **Movimentações** | Estoque → Movimentações | Todos | Histórico completo, com data, tipo, quantidade, custo e usuário |
 
@@ -184,6 +214,18 @@ Lotes vencidos nunca são dispensados, mesmo que tenham saldo.
 
 Para dar baixa em um lote vencido, use a contagem de inventário e informe a quantidade **0**
 nesse lote.
+
+**Bloqueio de lote, passo a passo:**
+
+1. Em **Estoque → Lotes e saldos**, clique no cadeado ao lado do lote.
+2. Confira os locais onde o lote está (o bloqueio vale para **todos** eles), informe o motivo
+   (por exemplo *recall do fabricante, alerta ANVISA nº 123/2026*) e clique em **Bloquear lote**.
+
+O lote bloqueado aparece em vermelho, não é dispensado nem transferido e sai do saldo
+utilizável do pedido de compra. Para liberar, clique no cadeado aberto e informe o motivo (por
+exemplo *laudo de liberação nº 45/2026*). Bloqueios e desbloqueios ficam na trilha de auditoria.
+
+![Lote bloqueado](img/lote_bloqueado.png)
 
 ## Relatórios
 
@@ -197,7 +239,8 @@ CSV**, que abre direto no Excel.
 | **Consumo por local de dispensação** | Comparar o consumo entre leitos, salas e setores |
 | **Consumo por paciente** | Ver o que cada paciente recebeu e o custo (útil para faturamento) |
 | **Estoque mínimo/máximo e pedido de compra** | Montar o pedido de compra: mostra o saldo, o consumo médio, para quantos dias o estoque dá e quanto comprar |
-| **Inventário** | Ver a posição do estoque por lote e local, com o valor total e os lotes perto do vencimento |
+| **Inventário** | Ver a posição do estoque por lote e local, com o valor total, os lotes perto do vencimento e os bloqueados |
+| **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Só para farmacêuticos; a exportação fica registrada |
 
 O atalho **Consumo** na lista de pacientes abre o consumo daquele paciente nos últimos 12 meses.
 
@@ -289,6 +332,27 @@ O que acontece:
 > ser mantida. O sistema informa a data a partir da qual a anonimização será possível. Confirme o
 > prazo adotado pela instituição com o encarregado de dados (DPO) e o farmacêutico responsável.
 
+![Escrituração de controlados](img/livro_controlados.png)
+
+## Auditoria e integridade (administrador)
+
+O ExataMed foi feito para ser auditável:
+
+- **Trilha de auditoria** (seu nome → *Trilha de auditoria*): toda inclusão, alteração e exclusão
+  de produtos, lotes, locais, pacientes, médicos, usuários e dispensações, com data, hora, usuário
+  e os valores de antes e depois. Para dados pessoais, a trilha mostra só que o campo foi
+  alterado, sem o valor.
+- **Registros selados**: movimentações de estoque, acessos a dados pessoais e a própria trilha
+  são encadeados por assinaturas digitais. Se alguém alterar, apagar ou incluir um registro
+  diretamente no banco de dados, sem passar pelo sistema, a verificação aponta onde.
+- **Integridade dos registros** (seu nome → *Integridade dos registros* → **Verificar agora**):
+  confere todas as assinaturas e se o saldo de cada lote bate com as movimentações.
+
+![Integridade dos registros](img/integridade.png)
+
+Se a verificação apontar problemas, **não corrija nada**: avise a TI e o responsável técnico,
+que seguem o procedimento do runbook de operação.
+
 ## O que cada perfil pode fazer
 
 | Função | Auxiliar | Farmacêutico | Administrador |
@@ -302,10 +366,18 @@ O que acontece:
 | Saída avulsa e contagem de inventário | | ✔ | ✔ |
 | Cadastrar medicamentos e localizações | | ✔ | ✔ |
 | Excluir registros | | ✔ | ✔ |
+| Registrar devolução de dispensação | | ✔ | ✔ |
+| Bloquear e desbloquear lotes | | ✔ | ✔ |
+| Escrituração de controlados | | ✔ | ✔ |
 | Gerenciar usuários | | | ✔ |
 | Consultar o registro de acessos e anonimizar cadastros (LGPD) | | | ✔ |
+| Trilha de auditoria e verificação de integridade | | | ✔ |
 
 ## Perguntas frequentes
+
+**Registrei uma dispensação errada. Posso apagar?**
+Não: nenhuma dispensação é apagada, para preservar a rastreabilidade. Peça a um farmacêutico para
+registrar a [devolução](#devolução-de-dispensação) (estorno total) e faça a dispensação correta.
 
 **Por que não consigo excluir um paciente, produto ou local?**
 Registros que já têm movimentações não podem ser excluídos, para preservar o histórico. Produtos

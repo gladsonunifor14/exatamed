@@ -9,8 +9,8 @@ from sqlalchemy import or_
 
 from . import validacao
 from .lgpd import registrar_acesso
-from .models import (Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso,
-                     Usuario, db)
+from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario, db
+from .numeros import ZERO, decimal
 
 bp = Blueprint("cadastros", __name__, url_prefix="/cadastros")
 
@@ -279,11 +279,11 @@ def _converter(campo, bruto):
     if campo.tipo == "checkbox":
         return bruto in ("on", "1", "true")
     if not bruto:
-        return 0.0 if campo.tipo == "number" else None
+        return ZERO if campo.tipo == "number" else None
     if campo.tipo == "date":
         return datetime.strptime(bruto, "%Y-%m-%d").date()
     if campo.tipo == "number":
-        return float(bruto.replace(",", "."))
+        return decimal(bruto)
     if campo.nome.endswith("_id"):
         return int(bruto)
     return bruto

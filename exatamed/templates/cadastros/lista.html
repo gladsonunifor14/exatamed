@@ -23,7 +23,7 @@
             {% for rotulo, endpoint, param in cadastro.links %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for(endpoint, **{param: obj.id}) }}">{{ rotulo }}</a>{% endfor %}
             {% if obj.anonimizado %}<span class="badge bg-dark me-1">Anonimizado</span>{% endif %}
             {% if current_user.pode(cadastro.perfil_edicao) and not obj.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
-            {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" onsubmit="return confirm('Excluir este registro?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>{% endif %}
+            {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" data-confirmar="Excluir este registro?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>{% endif %}
           </td>
         </tr>
       {% else %}

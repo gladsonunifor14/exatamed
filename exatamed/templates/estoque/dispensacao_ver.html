@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% block titulo %}Dispensação {{ d.numero_formatado }}{% endblock %}
 {% block conteudo %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">Dispensação nº {{ d.numero_formatado }}</h1>
-  <div class="d-print-none"><button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
-  <a class="btn btn-exata" href="{{ url_for('estoque.dispensacao') }}">Nova dispensação</a></div>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0">Dispensação nº {{ d.numero_formatado }}
+    {% if d.situacao != 'Dispensada' %}<span class="badge {{ 'bg-secondary' if d.situacao == 'Devolvida integralmente' else 'bg-warning text-dark' }} fs-6 align-middle">{{ d.situacao }}</span>{% endif %}</h1>
+  <div class="d-print-none d-flex flex-wrap gap-2">
+    <button class="btn btn-outline-secondary" data-acao="imprimir"><i class="bi bi-printer"></i> Imprimir</button>
+    {% if current_user.pode(Usuario.FARMACEUTICO) and d.itens_dispensados|selectattr('quantidade_a_devolver')|list %}
+    <a class="btn btn-outline-warning" href="{{ url_for('estoque.devolver_dispensacao', id=d.id) }}"><i class="bi bi-arrow-counterclockwise"></i> Registrar devolução</a>{% endif %}
+    <a class="btn btn-exata" href="{{ url_for('estoque.dispensacao') }}">Nova dispensação</a>
+  </div>
 </div>
 <div class="card mb-3"><div class="card-body row g-2">
   <div class="col-md-4"><strong>Data:</strong> {{ d.data|data('%d/%m/%Y %H:%M') }}</div>
@@ -19,11 +24,23 @@
   {% if d.observacao %}<div class="col-12"><strong>Observação:</strong> {{ d.observacao }}</div>{% endif %}
 </div></div>
 <div class="card"><div class="table-responsive"><table class="table mb-0">
-  <thead class="table-light"><tr><th>Produto</th><th>Controle</th><th>Lote</th><th>Validade</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit. (PEPS)</th><th class="text-end">Total</th></tr></thead>
-  <tbody>{% for m in d.movimentacoes %}
+  <thead class="table-light"><tr><th>Produto</th><th>Controle</th><th>Lote</th><th>Validade</th><th class="text-end">Dispensado</th><th class="text-end">Devolvido</th><th class="text-end">Custo unit. (PEPS)</th><th class="text-end">Custo líquido</th></tr></thead>
+  <tbody>{% for m in d.itens_dispensados %}
     <tr><td>{{ m.produto }}</td><td>{{ m.produto.controle_especial or '' }}</td><td>{{ m.lote.numero_lote }}</td><td>{{ m.lote.validade|data }}</td>
-    <td class="text-end">{{ (-m.quantidade)|numero }} {{ m.produto.unidade_medida }}</td><td class="text-end">{{ m.custo_unitario|moeda }}</td><td class="text-end">{{ m.custo_total|moeda }}</td></tr>
+    <td class="text-end">{{ (-m.quantidade)|numero }} {{ m.produto.unidade_medida }}</td>
+    <td class="text-end">{{ m.quantidade_devolvida|numero if m.quantidade_devolvida else '—' }}</td>
+    <td class="text-end">{{ m.custo_unitario|moeda }}</td><td class="text-end">{{ ((-m.quantidade - m.quantidade_devolvida) * m.custo_unitario)|moeda }}</td></tr>
   {% endfor %}</tbody>
-  <tfoot class="fw-semibold"><tr><td colspan="6">Total</td><td class="text-end">{{ d.custo_total|moeda }}</td></tr></tfoot>
+  <tfoot class="fw-semibold"><tr><td colspan="7">Total líquido</td><td class="text-end">{{ d.custo_total|moeda }}</td></tr></tfoot>
 </table></div></div>
+{% if d.devolucoes %}
+<div class="card mt-3"><div class="card-header fw-semibold"><i class="bi bi-arrow-counterclockwise"></i> Devoluções</div>
+<div class="table-responsive"><table class="table table-sm mb-0">
+  <thead class="table-light"><tr><th>Data</th><th>Produto</th><th>Lote</th><th class="text-end">Quantidade</th><th>Motivo</th><th>Registrado por</th></tr></thead>
+  <tbody>{% for m in d.devolucoes %}
+    <tr><td class="text-nowrap">{{ m.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ m.produto }}</td><td>{{ m.lote.numero_lote }}</td>
+      <td class="text-end">{{ m.quantidade|numero }} {{ m.produto.unidade_medida }}</td><td>{{ m.motivo }}</td><td>{{ m.usuario.login if m.usuario else '' }}</td></tr>
+  {% endfor %}</tbody>
+</table></div></div>
+{% endif %}
 {% endblock %}

@@ -5,7 +5,7 @@
   <h1 class="h3 mb-0">{{ titulo }}</h1>
   <div class="d-print-none">
     <a class="btn btn-outline-secondary" href="{{ url_for('relatorios.indice') }}"><i class="bi bi-arrow-left"></i> Relatórios</a>
-    <button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+    <button class="btn btn-outline-secondary" data-acao="imprimir"><i class="bi bi-printer"></i> Imprimir</button>
     <a class="btn btn-exata" href="{{ url_for('relatorios.exibir', chave=chave, formato='csv', **args.to_dict()) }}"><i class="bi bi-filetype-csv"></i> Exportar CSV</a>
   </div>
 </div>
@@ -16,6 +16,10 @@
   {% endif %}
   {% if filtros.endswith('local') %}
   <div class="col-md-3"><label class="form-label">{{ 'Local de dispensação' if chave == 'consumo_local' else 'Local' }}</label>{{ select_local(locais, 'localizacao_id', args.localizacao_id, obrigatorio=False, vazio='Todos') }}</div>
+  {% endif %}
+  {% if filtros == 'periodo_produto' %}
+  <div class="col-md-4"><label class="form-label">Medicamento controlado</label><select class="form-select" name="produto_id"><option value="">Todos os controlados</option>
+    {% for p in produtos if p.controle_especial %}<option value="{{ p.id }}" {{ 'selected' if args.produto_id == p.id|string }}>{{ p }} ({{ p.controle_especial }})</option>{% endfor %}</select></div>
   {% endif %}
   {% if filtros == 'periodo_paciente' %}
   <div class="col-md-4"><label class="form-label">Paciente</label><select class="form-select" name="paciente_id"><option value="">Todos</option>

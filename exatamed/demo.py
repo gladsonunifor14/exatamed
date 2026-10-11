@@ -1,5 +1,6 @@
 """Dados de demonstração (`flask --app exatamed demo`)."""
 
+import contextlib
 import random
 from datetime import date, datetime, timedelta
 
@@ -98,13 +99,11 @@ def popular(semente=42):
             origem = sus if not paciente.plano_saude else particular
             candidatos = [p for p in produtos if not estoque.verificar_alergias(paciente, p)]
             itens = [(p, rng.randint(1, 4)) for p in rng.sample(candidatos, 2)]
-            try:
+            with contextlib.suppress(estoque.EstoqueError):
                 estoque.dispensar(paciente, origem, rng.choice(leitos), itens, medico=rng.choice(medicos),
                                   prescricao=f"RX-{rng.randint(1000, 9999)}", responsavel="Farmacêutico plantonista",
                                   data=datetime.combine(hoje - timedelta(days=dia), datetime.min.time())
                                   + timedelta(hours=rng.randint(7, 20)))
-            except estoque.EstoqueError:
-                pass
     db.session.commit()
     return True
 

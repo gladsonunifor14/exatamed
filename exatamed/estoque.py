@@ -6,12 +6,41 @@ import unicodedata
 from datetime import date, datetime
 
 from .models import Dispensacao, Lote, Movimentacao, db
-
-EPSILON = 1e-9
+from .numeros import ZERO, decimal, formatar
 
 
 class EstoqueError(ValueError):
     """Operação de estoque inválida (saldo insuficiente, dados inconsistentes...)."""
+
+
+def _quantidade(valor, rotulo="A quantidade"):
+    try:
+        return decimal(valor)
+    except ValueError:
+        raise EstoqueError(f"{rotulo} é inválida.") from None
+
+
+def _debitar_lote(lote, quantidade):
+    """Debita o saldo no próprio banco, de forma atômica.
+
+    O UPDATE só acontece se o saldo ainda cobrir a quantidade: se outra operação
+    consumiu o lote no meio do caminho, nada é gravado e a operação é recusada,
+    em vez de deixar o estoque negativo.
+    """
+    resultado = db.session.execute(
+        db.update(Lote).where(Lote.id == lote.id, Lote.saldo >= quantidade)
+        .values(saldo=Lote.saldo - quantidade).execution_options(synchronize_session=False))
+    if resultado.rowcount != 1:
+        raise EstoqueError(f"O saldo do lote {lote.numero_lote} mudou durante a operação "
+                           "(outra movimentação simultânea). Confira e tente novamente.")
+    db.session.expire(lote, ["saldo"])
+
+
+def _creditar_lote(lote, quantidade):
+    db.session.execute(
+        db.update(Lote).where(Lote.id == lote.id).values(saldo=Lote.saldo + quantidade)
+        .execution_options(synchronize_session=False))
+    db.session.expire(lote, ["saldo"])
 
 
 def _normalizar(texto):
@@ -48,20 +77,29 @@ def saldo(produto_id, localizacao_id=None):
     return consulta.scalar()
 
 
-def lotes_peps(produto_id, localizacao_id, incluir_vencidos=False):
-    """Lotes com saldo na ordem PEPS (primeiro que entra, primeiro que sai)."""
+def lotes_peps(produto_id, localizacao_id, incluir_vencidos=False, travar=False):
+    """Lotes com saldo na ordem PEPS (primeiro que entra, primeiro que sai).
+
+    Com `travar`, as linhas ficam bloqueadas (SELECT ... FOR UPDATE no PostgreSQL)
+    até o fim da transação, serializando baixas simultâneas do mesmo produto.
+    """
     consulta = Lote.query.filter(
         Lote.produto_id == produto_id,
         Lote.localizacao_id == localizacao_id,
-        Lote.saldo > EPSILON,
+        Lote.saldo > 0,
+        Lote.bloqueado.is_(False),
     )
     if not incluir_vencidos:
         consulta = consulta.filter(Lote.validade >= date.today())
+    if travar:
+        consulta = consulta.with_for_update()
     return consulta.order_by(Lote.data_entrada, Lote.id).all()
 
 
 def registrar_entrada(produto, localizacao, numero_lote, validade, quantidade, custo_unitario,
                       documento=None, data=None):
+    quantidade = _quantidade(quantidade)
+    custo_unitario = _quantidade(custo_unitario, "O custo unitário")
     if quantidade <= 0:
         raise EstoqueError("A quantidade de entrada deve ser maior que zero.")
     if custo_unitario < 0:
@@ -100,24 +138,25 @@ def baixar_peps(produto, localizacao, quantidade, tipo, data=None, destino=None,
     Lotes vencidos nunca são consumidos. Retorna as movimentações geradas
     (uma por lote consumido), cada uma com o custo do seu lote.
     """
+    quantidade = _quantidade(quantidade)
     if quantidade <= 0:
         raise EstoqueError("A quantidade deve ser maior que zero.")
-    lotes = lotes_peps(produto.id, localizacao.id)
-    disponivel = sum(l.saldo for l in lotes)
-    if disponivel + EPSILON < quantidade:
+    lotes = lotes_peps(produto.id, localizacao.id, travar=True)
+    disponivel = sum((l.saldo for l in lotes), ZERO)
+    if disponivel < quantidade:
         raise EstoqueError(
             f"Saldo insuficiente de '{produto}' em {localizacao}: "
-            f"disponível {disponivel:g} {produto.unidade_medida} (não vencido), "
-            f"solicitado {quantidade:g}."
+            f"disponível {formatar(disponivel)} {produto.unidade_medida} (não vencido nem bloqueado), "
+            f"solicitado {formatar(quantidade)}."
         )
     data = data or datetime.now()
     restante = quantidade
     movimentacoes = []
     for lote in lotes:
-        if restante <= EPSILON:
+        if restante <= 0:
             break
         consumo = min(lote.saldo, restante)
-        lote.saldo -= consumo
+        _debitar_lote(lote, consumo)
         restante -= consumo
         mov = Movimentacao(
             tipo=tipo,
@@ -203,17 +242,18 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
         achados = verificar_alergias(paciente, produto)
         if achados:
             conflitos[str(produto)] = achados
+    itens = [(produto, _quantidade(quantidade, f"A quantidade de '{produto}'")) for produto, quantidade in itens]
     necessidade = {}
     for produto, quantidade in itens:
         if quantidade <= 0:
             raise EstoqueError(f"A quantidade de '{produto}' deve ser maior que zero.")
-        necessidade[produto] = necessidade.get(produto, 0) + quantidade
+        necessidade[produto] = necessidade.get(produto, ZERO) + quantidade
     for produto, quantidade in necessidade.items():
-        disponivel = sum(l.saldo for l in lotes_peps(produto.id, origem.id))
-        if disponivel + EPSILON < quantidade:
+        disponivel = sum((l.saldo for l in lotes_peps(produto.id, origem.id)), ZERO)
+        if disponivel < quantidade:
             raise EstoqueError(
-                f"Saldo insuficiente de '{produto}' em {origem}: disponível {disponivel:g} "
-                f"{produto.unidade_medida} (não vencido), solicitado {quantidade:g}."
+                f"Saldo insuficiente de '{produto}' em {origem}: disponível {formatar(disponivel)} "
+                f"{produto.unidade_medida} (não vencido nem bloqueado), solicitado {formatar(quantidade)}."
             )
     if conflitos and not confirmar_alergia:
         detalhes = "; ".join(f"{p}: {', '.join(a)}" for p, a in conflitos.items())
@@ -245,12 +285,19 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
 
 def ajustar_inventario(lote, quantidade_contada, motivo, data=None):
     """Ajusta o saldo de um lote para a quantidade contada fisicamente."""
+    quantidade_contada = _quantidade(quantidade_contada, "A quantidade contada")
     if quantidade_contada < 0:
         raise EstoqueError("A quantidade contada não pode ser negativa.")
+    # Trava o lote e relê o saldo atual antes de calcular a diferença.
+    db.session.flush()
+    lote = Lote.query.filter_by(id=lote.id).with_for_update().populate_existing().one()
     diferenca = quantidade_contada - lote.saldo
-    if abs(diferenca) <= EPSILON:
+    if diferenca == 0:
         return None
-    lote.saldo = quantidade_contada
+    if diferenca < 0:
+        _debitar_lote(lote, -diferenca)
+    else:
+        _creditar_lote(lote, diferenca)
     mov = Movimentacao(
         tipo=Movimentacao.AJUSTE,
         data=data or datetime.now(),
@@ -263,3 +310,70 @@ def ajustar_inventario(lote, quantidade_contada, motivo, data=None):
     )
     db.session.add(mov)
     return mov
+
+
+def devolver(dispensacao, quantidades, motivo, data=None):
+    """Registra a devolução (estorno) de itens de uma dispensação.
+
+    `quantidades` mapeia o id da movimentação de dispensação para a quantidade devolvida.
+    Nada é apagado: cada devolução é uma movimentação nova (ESTORNO), positiva, que
+    volta ao mesmo lote e com o mesmo custo da saída original.
+    """
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise EstoqueError("Informe o motivo da devolução.")
+    itens = {m.id: m for m in dispensacao.itens_dispensados}
+    devolucoes = []
+    data = data or datetime.now()
+    for mov_id, quantidade in quantidades.items():
+        original = itens.get(mov_id)
+        if original is None:
+            raise EstoqueError("Item não pertence a esta dispensação.")
+        quantidade = _quantidade(quantidade, f"A quantidade devolvida de '{original.produto}'")
+        if quantidade == 0:
+            continue
+        if quantidade < 0:
+            raise EstoqueError("A quantidade devolvida não pode ser negativa.")
+        if quantidade > original.quantidade_a_devolver:
+            raise EstoqueError(
+                f"'{original.produto}', lote {original.lote.numero_lote}: só é possível devolver "
+                f"{formatar(original.quantidade_a_devolver)} {original.produto.unidade_medida}.")
+        _creditar_lote(original.lote, quantidade)
+        devolucao = Movimentacao(
+            tipo=Movimentacao.ESTORNO, data=data, produto=original.produto, lote=original.lote,
+            localizacao=original.localizacao, destino=dispensacao.destino, quantidade=quantidade,
+            custo_unitario=original.custo_unitario, dispensacao=dispensacao, origem=original,
+            documento=f"Dispensação {dispensacao.numero_formatado}", motivo=motivo[:200],
+        )
+        db.session.add(devolucao)
+        devolucoes.append(devolucao)
+    if not devolucoes:
+        raise EstoqueError("Informe a quantidade devolvida de ao menos um item.")
+    return devolucoes
+
+
+def bloquear_lote(produto, numero_lote, motivo):
+    """Bloqueia o lote em todos os locais (recall, interdição, quarentena)."""
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise EstoqueError("Informe o motivo do bloqueio (ex.: recall do fabricante, alerta ANVISA nº ...).")
+    lotes = Lote.query.filter_by(produto_id=produto.id, numero_lote=numero_lote, bloqueado=False).all()
+    if not lotes:
+        raise EstoqueError("Lote não encontrado ou já bloqueado.")
+    agora = datetime.now()
+    for lote in lotes:
+        lote.bloqueado, lote.motivo_bloqueio, lote.bloqueado_em = True, motivo[:200], agora
+    return lotes
+
+
+def desbloquear_lote(produto, numero_lote, motivo):
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise EstoqueError("Informe o motivo do desbloqueio (ex.: laudo de liberação nº ...).")
+    lotes = Lote.query.filter_by(produto_id=produto.id, numero_lote=numero_lote, bloqueado=True).all()
+    if not lotes:
+        raise EstoqueError("Lote não encontrado ou não está bloqueado.")
+    for lote in lotes:
+        lote.bloqueado, lote.bloqueado_em = False, None
+        lote.motivo_bloqueio = f"Desbloqueado: {motivo}"[:200]
+    return lotes

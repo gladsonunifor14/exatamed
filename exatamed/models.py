@@ -10,6 +10,9 @@ from . import validacao
 
 db = SQLAlchemy()
 
+# Quantidades e custos: decimal exato com 4 casas (ver numeros.py).
+QTD = db.Numeric(14, 4)
+
 
 def calcular_idade(nascimento, referencia=None):
     if not nascimento:
@@ -24,6 +27,15 @@ def calcular_idade(nascimento, referencia=None):
 class TimestampMixin:
     criado_em = db.Column(db.DateTime, default=datetime.now, nullable=False)
     atualizado_em = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+
+class SeladoMixin:
+    """Registro selado na cadeia de auditoria (ver auditoria.py): número de sequência e
+    assinatura HMAC que encadeia o registro ao anterior. Alterar, remover ou inserir
+    registros fora da aplicação quebra a cadeia, o que é detectado na verificação."""
+
+    seq_cadeia = db.Column(db.Integer, index=True)
+    hash = db.Column(db.String(64))
 
 
 class DadosPessoaisMixin:
@@ -95,6 +107,14 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     ultimo_acesso = db.Column(db.DateTime)
     ocultar_primeiros_passos = db.Column(db.Boolean, default=False, nullable=False)
     anonimizado_em = db.Column(db.DateTime)
+    # Incrementada ao trocar a senha, o perfil ou desativar o usuário: invalida as sessões abertas.
+    versao_sessao = db.Column(db.Integer, default=1, nullable=False)
+
+    def get_id(self):
+        return f"{self.id}:{self.versao_sessao}"
+
+    def encerrar_sessoes(self):
+        self.versao_sessao = (self.versao_sessao or 1) + 1
 
     def definir_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)
@@ -213,6 +233,9 @@ class Produto(TimestampMixin, db.Model):
     """Medicamento ou material médico-hospitalar."""
 
     __tablename__ = "produtos"
+    __table_args__ = (
+        db.CheckConstraint("estoque_minimo >= 0 AND estoque_maximo >= 0", name="ck_produto_limites"),
+    )
 
     TIPOS = {"MEDICAMENTO": "Medicamento", "MATERIAL": "Material médico-hospitalar"}
 
@@ -227,8 +250,8 @@ class Produto(TimestampMixin, db.Model):
     unidade_medida = db.Column(db.String(30), nullable=False, default="UN")
     localizacao_padrao_id = db.Column(db.Integer, db.ForeignKey("localizacoes.id"))
     alertas_alergia = db.Column(db.Text)
-    estoque_minimo = db.Column(db.Float, nullable=False, default=0)
-    estoque_maximo = db.Column(db.Float, nullable=False, default=0)
+    estoque_minimo = db.Column(QTD, nullable=False, default=0)
+    estoque_maximo = db.Column(QTD, nullable=False, default=0)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     localizacao_padrao = db.relationship("Localizacao")
@@ -261,6 +284,12 @@ class Lote(db.Model):
     """
 
     __tablename__ = "lotes"
+    # O banco recusa saldo negativo mesmo que uma falha de aplicação tente gravá-lo.
+    __table_args__ = (
+        db.CheckConstraint("saldo >= 0", name="ck_lote_saldo_nao_negativo"),
+        db.CheckConstraint("quantidade_inicial > 0", name="ck_lote_quantidade_inicial"),
+        db.CheckConstraint("custo_unitario >= 0", name="ck_lote_custo"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False, index=True)
@@ -268,9 +297,13 @@ class Lote(db.Model):
     numero_lote = db.Column(db.String(50), nullable=False)
     validade = db.Column(db.Date, nullable=False)
     data_entrada = db.Column(db.DateTime, nullable=False, default=datetime.now)
-    custo_unitario = db.Column(db.Float, nullable=False, default=0)
-    quantidade_inicial = db.Column(db.Float, nullable=False)
-    saldo = db.Column(db.Float, nullable=False)
+    custo_unitario = db.Column(QTD, nullable=False, default=0)
+    quantidade_inicial = db.Column(QTD, nullable=False)
+    saldo = db.Column(QTD, nullable=False)
+    # Bloqueio (recall do fabricante, interdição sanitária, quarentena): não é dispensado nem transferido.
+    bloqueado = db.Column(db.Boolean, nullable=False, default=False)
+    motivo_bloqueio = db.Column(db.String(200))
+    bloqueado_em = db.Column(db.DateTime)
 
     produto = db.relationship("Produto", back_populates="lotes")
     localizacao = db.relationship("Localizacao")
@@ -317,7 +350,24 @@ class Dispensacao(TimestampMixin, db.Model):
 
     @property
     def custo_total(self):
-        return sum(m.custo_total for m in self.movimentacoes)
+        """Custo PEPS líquido: itens dispensados menos itens devolvidos."""
+        return sum((m.consumo_custo for m in self.movimentacoes), 0)
+
+    @property
+    def itens_dispensados(self):
+        return [m for m in self.movimentacoes if m.tipo == Movimentacao.DISPENSACAO]
+
+    @property
+    def devolucoes(self):
+        return [m for m in self.movimentacoes if m.tipo == Movimentacao.ESTORNO]
+
+    @property
+    def situacao(self):
+        dispensado = sum((-m.quantidade for m in self.itens_dispensados), 0)
+        devolvido = sum((m.quantidade for m in self.devolucoes), 0)
+        if not devolvido:
+            return "Dispensada"
+        return "Devolvida integralmente" if devolvido >= dispensado else "Devolução parcial"
 
     @property
     def numero_formatado(self):
@@ -327,29 +377,54 @@ class Dispensacao(TimestampMixin, db.Model):
 
     @staticmethod
     def proximo_numero(ano):
-        ultimo = db.session.query(db.func.max(Dispensacao.numero)).filter(Dispensacao.ano == ano).scalar()
-        return (ultimo or 0) + 1
+        """Próximo número do ano, tirado de um contador travado no banco (SELECT ... FOR UPDATE).
+
+        Dispensações simultâneas esperam a vez no contador em vez de calcular o mesmo
+        número. A trava vale até o fim da transação.
+        """
+        from sqlalchemy.exc import IntegrityError
+        nome = f"dispensacao:{ano}"
+
+        def travar():
+            return Sequencia.query.filter_by(nome=nome).with_for_update().populate_existing().first()
+
+        contador = travar()
+        if contador is None:
+            # Primeiro número do ano (ou primeira execução após a atualização): parte do maior já usado.
+            maior = db.session.query(db.func.max(Dispensacao.numero)).filter(Dispensacao.ano == ano).scalar() or 0
+            try:
+                with db.session.begin_nested():
+                    db.session.add(Sequencia(nome=nome, ultimo=maior))
+            except IntegrityError:
+                pass  # outra transação criou o contador ao mesmo tempo
+            contador = travar()
+        contador.ultimo += 1
+        return contador.ultimo
 
 
-class Movimentacao(db.Model):
+class Movimentacao(SeladoMixin, db.Model):
     """Registro imutável de cada movimento de estoque, sempre ligado a um lote."""
 
     __tablename__ = "movimentacoes"
+    __table_args__ = (db.CheckConstraint("quantidade <> 0", name="ck_movimentacao_quantidade"),)
 
     ENTRADA = "ENTRADA"
     SAIDA = "SAIDA"
     DISPENSACAO = "DISPENSACAO"
     TRANSFERENCIA = "TRANSFERENCIA"
     AJUSTE = "AJUSTE"
+    ESTORNO = "ESTORNO"
     TIPOS = {
         ENTRADA: "Entrada",
         SAIDA: "Saída",
         DISPENSACAO: "Dispensação",
         TRANSFERENCIA: "Transferência",
         AJUSTE: "Ajuste de inventário",
+        ESTORNO: "Devolução de dispensação",
     }
-    # Tipos que representam consumo (baixa definitiva) para os relatórios.
-    CONSUMO = (SAIDA, DISPENSACAO)
+    # Tipos que entram no cálculo de consumo. A devolução (ESTORNO, quantidade positiva)
+    # abate o consumo da dispensação de origem: consumo líquido = dispensado - devolvido.
+    CONSUMO = (SAIDA, DISPENSACAO, ESTORNO)
 
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(20), nullable=False, index=True)
@@ -359,9 +434,11 @@ class Movimentacao(db.Model):
     localizacao_id = db.Column(db.Integer, db.ForeignKey("localizacoes.id"), nullable=False)
     destino_id = db.Column(db.Integer, db.ForeignKey("localizacoes.id"))
     # Positiva para entradas/ajustes a maior, negativa para baixas.
-    quantidade = db.Column(db.Float, nullable=False)
-    custo_unitario = db.Column(db.Float, nullable=False, default=0)
+    quantidade = db.Column(QTD, nullable=False)
+    custo_unitario = db.Column(QTD, nullable=False, default=0)
     dispensacao_id = db.Column(db.Integer, db.ForeignKey("dispensacoes.id"), index=True)
+    # Devolução: aponta a movimentação de dispensação que está sendo devolvida.
+    origem_id = db.Column(db.Integer, db.ForeignKey("movimentacoes.id"), index=True)
     documento = db.Column(db.String(100))
     motivo = db.Column(db.String(200))
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
@@ -372,10 +449,30 @@ class Movimentacao(db.Model):
     localizacao = db.relationship("Localizacao", foreign_keys=[localizacao_id])
     destino = db.relationship("Localizacao", foreign_keys=[destino_id])
     dispensacao = db.relationship("Dispensacao", back_populates="movimentacoes")
+    origem = db.relationship("Movimentacao", remote_side="Movimentacao.id", backref="devolucoes")
 
     @property
     def custo_total(self):
+        """Valor absoluto da movimentação (quantidade x custo do lote)."""
         return abs(self.quantidade) * self.custo_unitario
+
+    @property
+    def quantidade_devolvida(self):
+        return sum((d.quantidade for d in self.devolucoes), 0)
+
+    @property
+    def quantidade_a_devolver(self):
+        """Quanto desta dispensação ainda pode ser devolvido."""
+        return -self.quantidade - self.quantidade_devolvida
+
+    @property
+    def consumo_quantidade(self):
+        """Quantidade consumida: positiva nas baixas, negativa nas devoluções."""
+        return -self.quantidade
+
+    @property
+    def consumo_custo(self):
+        return self.consumo_quantidade * self.custo_unitario
 
     @property
     def tipo_descricao(self):
@@ -393,7 +490,7 @@ def _registrar_usuario(mapper, connection, alvo):
             alvo.usuario_id = current_user.id
 
 
-class RegistroAcesso(db.Model):
+class RegistroAcesso(SeladoMixin, db.Model):
     """Trilha de acesso a dados pessoais (LGPD, art. 37): quem viu, alterou, exportou
     ou anonimizou dados pessoais, e quando."""
 
@@ -427,3 +524,64 @@ class RegistroAcesso(db.Model):
     @property
     def entidade_descricao(self):
         return self.ENTIDADES.get(self.entidade, self.entidade)
+
+
+class RegistroAuditoria(SeladoMixin, db.Model):
+    """Trilha de auditoria geral: inclusões, alterações e exclusões de cadastros, com
+    valores de antes e depois. Campos de dados pessoais registram só que foram alterados."""
+
+    __tablename__ = "registros_auditoria"
+
+    INCLUSAO = "INCLUSAO"
+    ALTERACAO = "ALTERACAO"
+    EXCLUSAO = "EXCLUSAO"
+    ACOES = {INCLUSAO: "Inclusão", ALTERACAO: "Alteração", EXCLUSAO: "Exclusão"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), index=True)
+    acao = db.Column(db.String(20), nullable=False)
+    entidade = db.Column(db.String(40), nullable=False, index=True)
+    registro_id = db.Column(db.Integer, index=True)
+    alteracoes = db.Column(db.Text)  # JSON: {campo: [antes, depois]}
+    ip = db.Column(db.String(45))
+
+    usuario = db.relationship("Usuario")
+
+    @property
+    def acao_descricao(self):
+        return self.ACOES.get(self.acao, self.acao)
+
+    @property
+    def alteracoes_dict(self):
+        import json
+        return json.loads(self.alteracoes) if self.alteracoes else {}
+
+
+class CadeiaAuditoria(db.Model):
+    """Último elo de cada cadeia de registros selados (uma linha por tabela)."""
+
+    __tablename__ = "cadeias_auditoria"
+
+    nome = db.Column(db.String(40), primary_key=True)
+    ultimo_seq = db.Column(db.Integer, nullable=False, default=0)
+    ultimo_hash = db.Column(db.String(64), nullable=False, default="")
+
+
+class TentativaLogin(db.Model):
+    """Falhas de login por endereço IP, para limitar tentativas em massa."""
+
+    __tablename__ = "tentativas_login"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(45), nullable=False, index=True)
+    data = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
+
+
+class Sequencia(db.Model):
+    """Contadores numerados (ex.: número da dispensação por ano), sempre lidos com trava."""
+
+    __tablename__ = "sequencias"
+
+    nome = db.Column(db.String(40), primary_key=True)
+    ultimo = db.Column(db.Integer, nullable=False, default=0)

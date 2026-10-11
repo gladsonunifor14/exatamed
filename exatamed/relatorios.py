@@ -9,6 +9,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
 from .models import Dispensacao, Lote, Movimentacao, Produto, db
+from .numeros import ZERO, decimal
+
+# Dispensações e suas devoluções (o consumo por local e por paciente é líquido).
+DISPENSACAO_LIQUIDA = (Movimentacao.DISPENSACAO, Movimentacao.ESTORNO)
 
 
 @dataclass
@@ -41,12 +45,12 @@ def _movimentos_consumo(inicio, fim, tipos=Movimentacao.CONSUMO, localizacao_id=
 
 
 def _agrupar_por_produto(movimentos):
-    grupos = defaultdict(lambda: [0.0, 0.0])
+    grupos = defaultdict(lambda: [ZERO, ZERO])
     produtos = {}
     for m in movimentos:
         produtos[m.produto_id] = m.produto
-        grupos[m.produto_id][0] += abs(m.quantidade)
-        grupos[m.produto_id][1] += m.custo_total
+        grupos[m.produto_id][0] += m.consumo_quantidade
+        grupos[m.produto_id][1] += m.consumo_custo
     linhas = [
         [str(produtos[pid]), produtos[pid].principio_ativo or "", produtos[pid].unidade_medida, qtd, custo]
         for pid, (qtd, custo) in grupos.items()
@@ -62,12 +66,12 @@ COLUNAS_PRODUTO = [
 
 def consumo_diario(inicio, fim, localizacao_id=None):
     movimentos = _movimentos_consumo(inicio, fim, localizacao_id=localizacao_id)
-    por_dia = defaultdict(lambda: {"mov": 0, "produtos": set(), "disp": 0.0, "saida": 0.0})
+    por_dia = defaultdict(lambda: {"mov": 0, "produtos": set(), "disp": ZERO, "saida": ZERO})
     for m in movimentos:
         d = por_dia[m.data.date()]
         d["mov"] += 1
         d["produtos"].add(m.produto_id)
-        d["disp" if m.tipo == Movimentacao.DISPENSACAO else "saida"] += m.custo_total
+        d["saida" if m.tipo == Movimentacao.SAIDA else "disp"] += m.consumo_custo
     dias = Tabela("Consumo por dia", [
         Coluna("Data", "data"), Coluna("Movimentações", "numero"), Coluna("Itens distintos", "numero"),
         Coluna("Custo dispensações", "moeda"), Coluna("Custo saídas avulsas", "moeda"),
@@ -96,7 +100,7 @@ def resumo_dispensacao(inicio, fim, anonimo=False):
     ini, fim_ = _periodo(inicio, fim)
     dispensacoes = Dispensacao.query.filter(Dispensacao.data.between(ini, fim_)) \
         .order_by(Dispensacao.data).all()
-    por_data = defaultdict(lambda: {"n": 0, "pacientes": set(), "itens": 0, "custo": 0.0})
+    por_data = defaultdict(lambda: {"n": 0, "pacientes": set(), "itens": 0, "custo": ZERO})
     detalhe = Tabela("Dispensações do período", [
         Coluna("Nº"), Coluna("Data/hora"), Coluna("Paciente"), Coluna("Médico"),
         Coluna("Origem"), Coluna("Local de dispensação"), Coluna("Prescrição"),
@@ -127,7 +131,7 @@ def resumo_dispensacao(inicio, fim, anonimo=False):
 
 
 def consumo_por_local(inicio, fim, localizacao_id=None):
-    movimentos = _movimentos_consumo(inicio, fim, tipos=(Movimentacao.DISPENSACAO,))
+    movimentos = _movimentos_consumo(inicio, fim, tipos=DISPENSACAO_LIQUIDA)
     if localizacao_id:
         movimentos = [m for m in movimentos if m.destino_id == localizacao_id]
     por_local = defaultdict(list)
@@ -137,10 +141,10 @@ def consumo_por_local(inicio, fim, localizacao_id=None):
         Coluna("Local"), Coluna("Dispensações", "numero"), Coluna("Pacientes", "numero"),
         Coluna("Itens distintos", "numero"), Coluna("Custo PEPS", "moeda"), Coluna("% do custo", "numero"),
     ])
-    total = sum(m.custo_total for m in movimentos) or 1
+    total = sum((m.consumo_custo for m in movimentos), ZERO) or 1
     tabelas = [resumo]
-    for local, movs in sorted(por_local.items(), key=lambda kv: -sum(m.custo_total for m in kv[1])):
-        custo = sum(m.custo_total for m in movs)
+    for local, movs in sorted(por_local.items(), key=lambda kv: -sum((m.consumo_custo for m in kv[1]), ZERO)):
+        custo = sum((m.consumo_custo for m in movs), ZERO)
         resumo.linhas.append([
             local, len({m.dispensacao_id for m in movs}),
             len({m.dispensacao.paciente_id for m in movs}),
@@ -154,7 +158,7 @@ def consumo_por_local(inicio, fim, localizacao_id=None):
 
 def consumo_por_paciente(inicio, fim, paciente_id=None, anonimo=False):
     """CPF e Cartão SUS saem mascarados; com `anonimo`, o paciente vira um código (P-000123)."""
-    movimentos = _movimentos_consumo(inicio, fim, tipos=(Movimentacao.DISPENSACAO,))
+    movimentos = _movimentos_consumo(inicio, fim, tipos=DISPENSACAO_LIQUIDA)
     if paciente_id:
         movimentos = [m for m in movimentos if m.dispensacao.paciente_id == paciente_id]
     por_paciente = defaultdict(list)
@@ -173,7 +177,7 @@ def consumo_por_paciente(inicio, fim, paciente_id=None, anonimo=False):
             "" if anonimo else paciente.cartao_sus_mascarado,
             paciente.plano_saude or "SUS",
             len({m.dispensacao_id for m in movs}), len({m.produto_id for m in movs}),
-            sum(m.custo_total for m in movs),
+            sum((m.consumo_custo for m in movs), ZERO),
         ])
         if paciente_id:
             tabelas.append(Tabela(f"Itens consumidos — {_identificacao(paciente, anonimo)}", COLUNAS_PRODUTO,
@@ -187,19 +191,19 @@ def calcular_pedido_compra(dias_historico=30, hoje=None):
     """Compara o saldo utilizável de cada produto com seus estoques mínimo e
     máximo e sugere a quantidade de compra.
 
-    - Saldo utilizável: soma dos lotes não vencidos em todos os locais.
+    - Saldo utilizável: soma dos lotes não vencidos e não bloqueados em todos os locais.
     - Consumo médio diário (CMD): consumo dos últimos `dias_historico` dias / dias.
     - Sugestão de compra: quando saldo <= mínimo, comprar (máximo - saldo).
     - Custo estimado: sugestão x custo unitário da entrada mais recente.
     """
     hoje = hoje or date.today()
     inicio = hoje - timedelta(days=dias_historico - 1)
-    consumo = defaultdict(float)
+    consumo = defaultdict(lambda: ZERO)
     for m in _movimentos_consumo(inicio, hoje):
-        consumo[m.produto_id] += abs(m.quantidade)
+        consumo[m.produto_id] += m.consumo_quantidade
     saldos = dict(
         db.session.query(Lote.produto_id, db.func.sum(Lote.saldo))
-        .filter(Lote.validade >= hoje).group_by(Lote.produto_id).all()
+        .filter(Lote.validade >= hoje, Lote.bloqueado.is_(False)).group_by(Lote.produto_id).all()
     )
     resultado = []
     for p in Produto.query.filter_by(ativo=True).order_by(Produto.nome_comercial).all():
@@ -255,8 +259,9 @@ def inventario(localizacao_id=None, dias_alerta_validade=90):
         Coluna("Produto"), Coluna("Controle especial"), Coluna("Local"), Coluna("Lote"),
         Coluna("Validade", "data"), Coluna("Entrada", "data"), Coluna("Unidade"),
         Coluna("Saldo", "numero"), Coluna("Custo unitário", "moeda"), Coluna("Valor", "moeda"),
+        Coluna("Situação"),
     ])
-    por_produto = defaultdict(lambda: [0.0, 0.0])
+    por_produto = defaultdict(lambda: [ZERO, ZERO])
     produtos = {}
     hoje = date.today()
     for i, l in enumerate(lotes):
@@ -264,15 +269,16 @@ def inventario(localizacao_id=None, dias_alerta_validade=90):
         detalhe.linhas.append([
             str(l.produto), l.produto.controle_especial or "", l.localizacao.nome, l.numero_lote,
             l.validade, l.data_entrada.date(), l.produto.unidade_medida, l.saldo, l.custo_unitario, valor,
+            f"Bloqueado: {l.motivo_bloqueio}" if l.bloqueado else ("Vencido" if l.validade < hoje else ""),
         ])
-        if l.validade < hoje:
+        if l.bloqueado or l.validade < hoje:
             detalhe.destaques[i] = "table-danger"
         elif (l.validade - hoje).days <= dias_alerta_validade:
             detalhe.destaques[i] = "table-warning"
         produtos[l.produto_id] = l.produto
         por_produto[l.produto_id][0] += l.saldo
         por_produto[l.produto_id][1] += valor
-    detalhe.rodape = ["Total"] + [""] * 8 + [sum(l[9] for l in detalhe.linhas)]
+    detalhe.rodape = ["Total"] + [""] * 8 + [sum(l[9] for l in detalhe.linhas), ""]
     resumo = Tabela("Resumo por produto", [
         Coluna("Produto"), Coluna("Unidade"), Coluna("Saldo", "numero"),
         Coluna("Custo médio das camadas", "moeda"), Coluna("Valor PEPS", "moeda"),
@@ -282,3 +288,53 @@ def inventario(localizacao_id=None, dias_alerta_validade=90):
                               valor / qtd if qtd else 0, valor])
     resumo.rodape = ["Total", "", "", "", sum(l[4] for l in resumo.linhas)]
     return [resumo, detalhe]
+
+
+def livro_controlados(inicio, fim, produto_id=None):
+    """Escrituração de medicamentos de controle especial (Portaria SVS/MS nº 344/1998).
+
+    Por produto controlado: saldo no início do período, cada entrada e saída com lote,
+    documento, paciente, prescritor e responsável, saldo corrente e saldo final.
+    Transferências entre locais da própria instituição não alteram o saldo total e
+    não são escrituradas.
+    """
+    ini, fim_ = _periodo(inicio, fim)
+    consulta = Produto.query.filter(Produto.controle_especial.isnot(None), Produto.controle_especial != "")
+    if produto_id:
+        consulta = consulta.filter(Produto.id == produto_id)
+    tabelas = []
+    escrituraveis = [t for t in Movimentacao.TIPOS if t != Movimentacao.TRANSFERENCIA]
+    for produto in consulta.order_by(Produto.nome_comercial):
+        saldo_inicial = db.session.query(db.func.coalesce(db.func.sum(Movimentacao.quantidade), 0)).filter(
+            Movimentacao.produto_id == produto.id, Movimentacao.data < ini).scalar() or ZERO
+        movimentos = Movimentacao.query.filter(
+            Movimentacao.produto_id == produto.id, Movimentacao.data.between(ini, fim_),
+            Movimentacao.tipo.in_(escrituraveis)).order_by(Movimentacao.data, Movimentacao.id).all()
+        tabela = Tabela(
+            f"{produto} — lista {produto.controle_especial} — {produto.principio_ativo or ''}".rstrip(" —"), [
+                Coluna("Data/hora"), Coluna("Operação"), Coluna("Lote"), Coluna("Documento"),
+                Coluna("Paciente"), Coluna("Prescritor"), Coluna("Entrada", "numero"), Coluna("Saída", "numero"),
+                Coluna("Saldo", "numero"), Coluna("Responsável"),
+            ])
+        saldo = decimal(saldo_inicial)
+        tabela.linhas.append(["", "Saldo anterior", "", "", "", "", "", "", saldo, ""])
+        entradas = saidas = ZERO
+        for m in movimentos:
+            saldo += m.quantidade
+            entrada, saida = (m.quantidade, "") if m.quantidade > 0 else ("", -m.quantidade)
+            entradas += m.quantidade if m.quantidade > 0 else ZERO
+            saidas += -m.quantidade if m.quantidade < 0 else ZERO
+            dispensacao = m.dispensacao
+            medico = dispensacao.medico if dispensacao else None
+            tabela.linhas.append([
+                m.data.strftime("%d/%m/%Y %H:%M"), m.tipo_descricao, m.lote.numero_lote,
+                m.documento or (f"Dispensação {dispensacao.numero_formatado}" if dispensacao else "") or m.motivo or "",
+                dispensacao.paciente.nome if dispensacao else "",
+                f"{medico.nome} ({medico.crm_formatado})" if medico else "",
+                entrada, saida, saldo, m.usuario.login if m.usuario else "",
+            ])
+        tabela.rodape = ["", "Totais do período", "", "", "", "", entradas, saidas, saldo, ""]
+        tabelas.append(tabela)
+    if not tabelas:
+        tabelas.append(Tabela("Nenhum produto de controle especial cadastrado", [Coluna("Produto")]))
+    return tabelas

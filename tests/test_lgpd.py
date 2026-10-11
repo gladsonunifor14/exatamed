@@ -1,12 +1,21 @@
 from datetime import date, datetime, timedelta
 
 import pytest
-
 from conftest import SENHA, criar_usuario, entrar
+
 from exatamed import estoque, validacao
-from exatamed.lgpd import LGPDError, anonimizar, anonimizar_banco
-from exatamed.models import (Dispensacao, Localizacao, Medico, Movimentacao, Paciente, Produto, RegistroAcesso,
-                             Usuario, db)
+from exatamed.lgpd import LGPDError, anonimizar
+from exatamed.models import (
+    Dispensacao,
+    Localizacao,
+    Medico,
+    Movimentacao,
+    Paciente,
+    Produto,
+    RegistroAcesso,
+    Usuario,
+    db,
+)
 
 CPF = "529.982.247-25"
 CNS = "940781618495933"
@@ -63,8 +72,8 @@ def test_listas_e_relatorios_mostram_documentos_mascarados(client, base):
     assert "(**) *****" not in lista  # telefone não aparece na lista de pacientes
     medicos = client.get("/cadastros/medicos/").get_data(as_text=True)
     assert "111.444.777-35" not in medicos
-    selecao = client.get("/estoque/dispensacao").get_data(as_text=True)
-    assert "CPF ***.982.247-**" in selecao and CPF not in selecao
+    busca = client.get("/estoque/pacientes/busca?q=Maria").get_data(as_text=True)
+    assert "***.982.247-**" in busca and CPF not in busca
     for formato in ("", "&formato=csv"):
         texto = client.get(f"/relatorios/consumo_paciente?inicio=2000-01-01{formato}").get_data(as_text=True)
         assert "***.982.247-**" in texto and CPF not in texto and CNS not in texto and "5933" in texto
@@ -176,7 +185,8 @@ def test_anonimizar_medicos(client, base):
     db.session.add(outro)
     db.session.commit()
     for medico in (base["medico"], outro):
-        client.post(f"/lgpd/anonimizar/medico/{medico.id}", data={"motivo": "desligamento", "confirmacao": "ANONIMIZAR"})
+        client.post(f"/lgpd/anonimizar/medico/{medico.id}",
+                    data={"motivo": "desligamento", "confirmacao": "ANONIMIZAR"})
     for medico in Medico.query.all():
         assert medico.anonimizado and medico.cpf is None and medico.crm == f"ANON{medico.id}"
 
