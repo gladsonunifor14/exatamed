@@ -3,8 +3,9 @@
 import csv
 import io
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
-from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
@@ -12,7 +13,9 @@ from . import estoque, relatorios
 from .ajuda import primeiros_passos
 from .auth import perfil_requerido
 from .estoque import EstoqueError
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, Usuario, db
+from .lgpd import registrar_acesso
+from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario, db
+from .numeros import ZERO, decimal, formatar
 
 principal = Blueprint("principal", __name__)
 bp_estoque = Blueprint("estoque", __name__, url_prefix="/estoque")
@@ -26,14 +29,14 @@ def _data(nome, padrao=None):
     try:
         return datetime.strptime(valor, "%Y-%m-%d").date()
     except ValueError:
-        raise EstoqueError(f"Data inválida: {valor}")
+        raise EstoqueError(f"Data inválida: {valor}") from None
 
 
 def _numero(nome):
     try:
-        return float((request.form.get(nome) or "").replace(",", "."))
+        return decimal(request.form.get(nome) or "")
     except ValueError:
-        raise EstoqueError("Informe uma quantidade numérica válida.")
+        raise EstoqueError("Informe uma quantidade numérica válida.") from None
 
 
 def _texto(nome, coluna, rotulo):
@@ -58,8 +61,9 @@ def _contexto_formularios():
         "produtos": Produto.query.filter_by(ativo=True).order_by(Produto.nome_comercial).all(),
         "locais": Localizacao.query.filter_by(ativo=True).order_by(Localizacao.principal.desc(),
                                                                    Localizacao.nome).all(),
-        "pacientes": Paciente.query.order_by(Paciente.nome).all(),
-        "medicos": Medico.query.order_by(Medico.nome).all(),
+        # Cadastros anonimizados não recebem novas dispensações. Os pacientes não são
+        # carregados aqui (podem ser milhares): a dispensação usa busca incremental.
+        "medicos": Medico.query.filter(Medico.anonimizado_em.is_(None)).order_by(Medico.nome).all(),
         "hoje": date.today(),
     }
 
@@ -71,8 +75,8 @@ def painel():
     a_vencer = Lote.query.filter(Lote.saldo > 0, Lote.validade <= hoje + timedelta(days=90)) \
         .order_by(Lote.validade).limit(15).all()
     inicio = datetime.combine(hoje, datetime.min.time())
-    consumo_hoje = sum(m.custo_total for m in Movimentacao.query.filter(
-        Movimentacao.tipo.in_(Movimentacao.CONSUMO), Movimentacao.data >= inicio))
+    consumo_hoje = sum((m.consumo_custo for m in Movimentacao.query.filter(
+        Movimentacao.tipo.in_(Movimentacao.CONSUMO), Movimentacao.data >= inicio)), ZERO)
     return render_template(
         "painel.html",
         total_produtos=Produto.query.filter_by(ativo=True).count(),
@@ -166,9 +170,9 @@ def _registrar_dispensacao():
         if not produto:
             raise EstoqueError("Selecione o produto de cada item.")
         try:
-            quantidade = float(qtd.replace(",", "."))
+            quantidade = decimal(qtd)
         except ValueError:
-            raise EstoqueError(f"Quantidade inválida para {produto}.")
+            raise EstoqueError(f"Quantidade inválida para {produto}.") from None
         itens.append((produto, quantidade))
     farmaceutico = current_user.pode(Usuario.FARMACEUTICO)
     controlados = [str(p) for p, _ in itens if p.controlado]
@@ -204,7 +208,7 @@ def dispensacao():
                 except IntegrityError:
                     db.session.rollback()
                     if tentativa == 2:
-                        raise EstoqueError("Não foi possível numerar a dispensação. Tente novamente.")
+                        raise EstoqueError("Não foi possível numerar a dispensação. Tente novamente.") from None
             flash(f"Dispensação nº {disp.numero_formatado} registrada para {disp.paciente.nome}. "
                   f"Custo PEPS: R$ {disp.custo_total:,.2f}.", "success")
             return redirect(url_for(".ver_dispensacao", id=disp.id))
@@ -217,12 +221,38 @@ def dispensacao():
     contexto = _contexto_formularios()
     # Só as farmácias principais (Farmácia SUS e Farmácia Particular) podem ser origem.
     contexto["origens"] = [l for l in contexto["locais"] if l.principal]
+    paciente_id = request.form.get("paciente_id", type=int)
+    contexto["paciente_selecionado"] = db.session.get(Paciente, paciente_id) if paciente_id else None
     return render_template("estoque/dispensacao.html", alerta=alerta, form=request.form, **contexto)
+
+
+@bp_estoque.route("/pacientes/busca")
+def buscar_pacientes():
+    """Busca incremental de pacientes para a dispensação (nome, CPF ou Cartão SUS).
+
+    Devolve no máximo 15 resultados, com CPF mascarado. Cadastros anonimizados não aparecem.
+    """
+    termo = (request.args.get("q") or "").strip()
+    if len(termo) < 2:
+        return []
+    filtros = [Paciente.nome.ilike(f"%{termo}%")]
+    digitos = "".join(c for c in termo if c.isdigit())
+    if len(digitos) >= 3:
+        filtros += [Paciente.cpf.ilike(f"%{digitos[:3]}%{digitos[3:]}%"), Paciente.cartao_sus.ilike(f"%{digitos}%")]
+    pacientes = Paciente.query.filter(Paciente.anonimizado_em.is_(None), db.or_(*filtros)) \
+        .order_by(Paciente.nome).limit(15).all()
+    return [{"id": p.id, "nome": p.nome, "cpf": p.cpf_mascarado, "plano": p.plano_saude or "",
+             "nascimento": p.data_nascimento.strftime("%d/%m/%Y") if p.data_nascimento else "",
+             "alergias": p.alergias or ""} for p in pacientes]
 
 
 @bp_estoque.route("/dispensacao/<int:id>")
 def ver_dispensacao(id):
-    return render_template("estoque/dispensacao_ver.html", d=db.get_or_404(Dispensacao, id))
+    dispensacao = db.get_or_404(Dispensacao, id)
+    # O comprovante mostra o Cartão SUS completo (necessário para faturamento): acesso registrado.
+    registrar_acesso(RegistroAcesso.VISUALIZAR, "dispensacao", dispensacao.id,
+                     f"Comprovante {dispensacao.numero_formatado}")
+    return render_template("estoque/dispensacao_ver.html", d=dispensacao)
 
 
 @bp_estoque.route("/alergias")
@@ -234,7 +264,52 @@ def checar_alergias():
         return {"conflitos": []}
     return {"conflitos": estoque.verificar_alergias(paciente, produto),
             "controlado": produto.controle_especial or "",
-            "saldos": {str(l.id): estoque.saldo(produto.id, l.id) for l in Localizacao.query.all()}}
+            "saldos": {str(l.id): formatar(estoque.saldo(produto.id, l.id)) for l in Localizacao.query.all()}}
+
+
+@bp_estoque.route("/dispensacao/<int:id>/devolver", methods=["GET", "POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def devolver_dispensacao(id):
+    dispensacao = db.get_or_404(Dispensacao, id)
+    if request.method == "POST":
+        try:
+            if request.form.get("tudo"):
+                quantidades = {m.id: m.quantidade_a_devolver for m in dispensacao.itens_dispensados
+                               if m.quantidade_a_devolver > 0}
+            else:
+                quantidades = {m.id: request.form.get(f"devolver_{m.id}") or "0"
+                               for m in dispensacao.itens_dispensados}
+            devolucoes = estoque.devolver(dispensacao, quantidades, request.form.get("motivo"))
+            db.session.commit()
+            flash(f"Devolução registrada: {len(devolucoes)} item(ns) retornaram ao estoque.", "success")
+            return redirect(url_for(".ver_dispensacao", id=dispensacao.id))
+        except EstoqueError as erro:
+            db.session.rollback()
+            flash(str(erro), "danger")
+    return render_template("estoque/dispensacao_devolver.html", d=dispensacao)
+
+
+@bp_estoque.route("/lotes/<int:id>/bloqueio", methods=["GET", "POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def bloqueio_lote(id):
+    lote = db.get_or_404(Lote, id)
+    mesmos = Lote.query.filter_by(produto_id=lote.produto_id, numero_lote=lote.numero_lote) \
+        .order_by(Lote.localizacao_id).all()
+    if request.method == "POST":
+        try:
+            if lote.bloqueado:
+                estoque.desbloquear_lote(lote.produto, lote.numero_lote, request.form.get("motivo"))
+                mensagem = f"Lote {lote.numero_lote} desbloqueado."
+            else:
+                estoque.bloquear_lote(lote.produto, lote.numero_lote, request.form.get("motivo"))
+                mensagem = f"Lote {lote.numero_lote} bloqueado em todos os locais."
+            db.session.commit()
+            flash(mensagem, "success")
+            return redirect(url_for(".lotes", produto_id=lote.produto_id))
+        except EstoqueError as erro:
+            db.session.rollback()
+            flash(str(erro), "danger")
+    return render_template("estoque/lote_bloqueio.html", lote=lote, mesmos=mesmos)
 
 
 @bp_estoque.route("/lotes")
@@ -283,9 +358,9 @@ def contagem():
                 if bruto == "":
                     continue
                 try:
-                    contado = float(bruto.replace(",", "."))
+                    contado = decimal(bruto)
                 except ValueError:
-                    raise EstoqueError(f"Contagem inválida no lote {lote.numero_lote}.")
+                    raise EstoqueError(f"Contagem inválida no lote {lote.numero_lote}.") from None
                 if estoque.ajustar_inventario(lote, contado, motivo):
                     ajustes += 1
             db.session.commit()
@@ -311,7 +386,18 @@ RELATORIOS = {
     "consumo_paciente": ("Consumo por paciente", "periodo_paciente"),
     "pedido_compra": ("Estoque mínimo/máximo e pedido de compra", "historico"),
     "inventario": ("Inventário", "local"),
+    "livro_controlados": ("Escrituração de controlados", "periodo_produto"),
 }
+# Relatórios restritos ao farmacêutico (contêm a escrituração regulatória de controlados).
+RELATORIOS_FARMACEUTICO = ("livro_controlados",)
+
+
+# Relatórios que identificam pacientes: podem ser gerados anonimizados e têm a exportação registrada.
+RELATORIOS_COM_PACIENTES = ("resumo_dispensacao", "consumo_paciente", "livro_controlados")
+
+
+def _anonimo():
+    return request.args.get("anonimo") == "1"
 
 
 def _gerar(chave):
@@ -324,11 +410,14 @@ def _gerar(chave):
     if chave == "consumo_diario":
         return relatorios.consumo_diario(inicio, fim, localizacao_id)
     if chave == "resumo_dispensacao":
-        return relatorios.resumo_dispensacao(inicio, fim)
+        return relatorios.resumo_dispensacao(inicio, fim, anonimo=_anonimo())
     if chave == "consumo_local":
         return relatorios.consumo_por_local(inicio, fim, localizacao_id)
     if chave == "consumo_paciente":
-        return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int))
+        return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int),
+                                               anonimo=_anonimo())
+    if chave == "livro_controlados":
+        return relatorios.livro_controlados(inicio, fim, request.args.get("produto_id", type=int))
     if chave == "pedido_compra":
         dias = max(request.args.get("dias", 30, type=int), 1)
         return relatorios.pedido_compra(dias)
@@ -345,7 +434,7 @@ def _csv(titulo, tabelas):
         escritor.writerow([c.titulo for c in tabela.colunas])
         for linha in tabela.linhas + ([tabela.rodape] if tabela.rodape else []):
             escritor.writerow([
-                (f"{v:.4f}".rstrip("0").rstrip(".").replace(".", ",") if isinstance(v, float)
+                (formatar(v) if isinstance(v, (float, Decimal))
                  else v.strftime("%d/%m/%Y") if isinstance(v, date) else v)
                 for v in linha
             ])
@@ -365,18 +454,25 @@ def exibir(chave):
     if chave not in RELATORIOS:
         return redirect(url_for(".indice"))
     titulo, filtros = RELATORIOS[chave]
+    if chave in RELATORIOS_FARMACEUTICO and not current_user.pode(Usuario.FARMACEUTICO):
+        abort(403)
     try:
         tabelas = _gerar(chave)
     except EstoqueError as erro:
         flash(str(erro), "danger")
         tabelas = []
     if request.args.get("formato") == "csv":
+        if chave in RELATORIOS_COM_PACIENTES and not _anonimo():
+            registrar_acesso(RegistroAcesso.EXPORTAR, "relatorio", None,
+                             f"{titulo} ({request.args.get('inicio', '')} a {request.args.get('fim', '')})")
         return _csv(titulo, tabelas)
     hoje = date.today()
+    contexto = _contexto_formularios()
+    if filtros == "periodo_paciente":
+        contexto["pacientes"] = Paciente.query.filter(Paciente.anonimizado_em.is_(None)).order_by(Paciente.nome).all()
     return render_template("relatorios/relatorio.html", chave=chave, titulo=titulo, filtros=filtros,
                            tabelas=tabelas, args=request.args,
-                           inicio_padrao=hoje.replace(day=1), fim_padrao=hoje,
-                           **_contexto_formularios())
+                           inicio_padrao=hoje.replace(day=1), fim_padrao=hoje, **contexto)
 
 
 # Atalhos com nomes estáveis (usados por links dos cadastros).

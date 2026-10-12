@@ -16,6 +16,9 @@ services:
         value: production
       - key: EXATAMED_SECRET_KEY
         generateValue: true
+      # Chave da cadeia de auditoria: gerada uma vez pelo Render. NUNCA a altere depois.
+      - key: EXATAMED_CHAVE_AUDITORIA
+        generateValue: true
       # Primeiro administrador, criado na primeira inicialização (se não houver usuários).
       # O Render pede a senha ao aplicar o Blueprint (mínimo de 8 caracteres).
       - key: EXATAMED_ADMIN_LOGIN

@@ -9,10 +9,11 @@
   'consumo_paciente': 'Custo e itens dispensados por paciente; selecione um paciente para ver o detalhamento.',
   'pedido_compra': 'Saldo utilizável versus estoques mínimo e máximo, consumo médio diário, cobertura e sugestão de compra.',
   'inventario': 'Posição do estoque por lote e local, valorizada pelo custo PEPS de cada camada, com alerta de validade.',
+  'livro_controlados': 'Escrituração dos medicamentos de controle especial: saldo anterior, entradas, saídas com paciente e prescritor, saldo corrente e final.',
 } %}
-{% set icones = {'consumo_diario': 'calendar3', 'resumo_dispensacao': 'prescription2', 'consumo_local': 'geo-alt', 'consumo_paciente': 'person-lines-fill', 'pedido_compra': 'cart-plus', 'inventario': 'clipboard-data'} %}
+{% set icones = {'consumo_diario': 'calendar3', 'resumo_dispensacao': 'prescription2', 'consumo_local': 'geo-alt', 'consumo_paciente': 'person-lines-fill', 'pedido_compra': 'cart-plus', 'inventario': 'clipboard-data', 'livro_controlados': 'journal-medical'} %}
 <div class="row g-3">
-  {% for chave, (titulo, _) in relatorios.items() %}
+  {% for chave, (titulo, _) in relatorios.items() if chave != 'livro_controlados' or current_user.pode(Usuario.FARMACEUTICO) %}
   <div class="col-md-6 col-xl-4"><a class="card h-100 text-decoration-none text-reset" href="{{ url_for('relatorios.exibir', chave=chave) }}"><div class="card-body">
     <h2 class="h5"><i class="bi bi-{{ icones[chave] }} text-success"></i> {{ loop.index }}. {{ titulo }}</h2>
     <p class="text-muted mb-0">{{ descricoes[chave] }}</p>

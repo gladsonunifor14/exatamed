@@ -7,7 +7,7 @@
   {% for c in cadastro.campos %}
     {% if c.secao %}<div class="col-12"><h2 class="h6 secao-form">{{ c.secao }}</h2></div>{% endif %}
     {% if valores is not none %}{% set v = valores.get(c.nome, '') %}
-    {% else %}{% set bruto = obj|attr(c.nome) %}{% set v = (bruto.isoformat() if bruto is not none and c.tipo == 'date' else ('%g'|format(bruto) if c.tipo == 'number' and bruto is not none else (bruto if bruto is not none else ''))) %}{% endif %}
+    {% else %}{% set bruto = obj|attr(c.nome) %}{% set v = (bruto.isoformat() if bruto is not none and c.tipo == 'date' else (bruto|numero_campo if c.tipo == 'number' and bruto is not none else (bruto if bruto is not none else ''))) %}{% endif %}
     <div class="col-md-{{ c.largura }}">
       {% if c.tipo == 'checkbox' %}
         <div class="form-check mt-md-4 pt-md-2">
@@ -35,7 +35,13 @@
   {% endif %}
   </div>
 </div>
-<div class="card-footer text-end">
+<div class="card-footer d-flex flex-wrap gap-2 align-items-center">
+  {% if cadastro.entidade_lgpd %}
+  <span class="small text-muted me-auto"><i class="bi bi-shield-lock"></i> Dados pessoais protegidos pela LGPD. O acesso a esta ficha fica registrado.</span>
+  {% if obj.id and current_user.pode(Usuario.ADMIN) %}
+  <a class="btn btn-outline-danger" href="{{ url_for('lgpd.anonimizar_cadastro', entidade=cadastro.entidade_lgpd, id=obj.id) }}"><i class="bi bi-incognito"></i> Anonimizar</a>
+  {% endif %}
+  {% else %}<span class="me-auto"></span>{% endif %}
   <a class="btn btn-outline-secondary" href="{{ url_for('cadastros.listar', chave=cadastro.chave) }}">Cancelar</a>
   <button class="btn btn-exata"><i class="bi bi-check-lg"></i> Salvar</button>
 </div></form>

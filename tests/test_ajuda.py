@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from conftest import criar_usuario
+
 from exatamed import estoque
 from exatamed.ajuda import carregar_guia, primeiros_passos
 from exatamed.demo import popular

@@ -9,18 +9,20 @@
   <div class="col-md-2"><button class="btn btn-outline-secondary w-100"><i class="bi bi-funnel"></i> Filtrar</button></div>
 </form>
 <div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Produto</th><th>Local</th><th>Lote</th><th>Validade</th><th>Entrada (ordem PEPS)</th><th class="text-end">Qtd. inicial</th><th class="text-end">Saldo</th><th class="text-end">Custo unit.</th><th class="text-end">Valor</th></tr></thead>
+  <thead class="table-light"><tr><th>Produto</th><th>Local</th><th>Lote</th><th>Validade</th><th>Entrada (ordem PEPS)</th><th class="text-end">Qtd. inicial</th><th class="text-end">Saldo</th><th class="text-end">Custo unit.</th><th class="text-end">Valor</th><th class="d-print-none"></th></tr></thead>
   <tbody>
   {% for l in lotes %}
-    <tr class="{{ 'table-danger' if l.vencido else ('table-warning' if l.dias_para_vencer <= 90 else '') }}">
-      <td>{{ l.produto }}</td><td>{{ l.localizacao }}</td><td>{{ l.numero_lote }}</td>
+    <tr class="{{ 'table-danger' if l.vencido or l.bloqueado else ('table-warning' if l.dias_para_vencer <= 90 else '') }}">
+      <td>{{ l.produto }}</td><td>{{ l.localizacao }}</td>
+      <td>{{ l.numero_lote }}{% if l.bloqueado %} <span class="badge bg-danger" title="{{ l.motivo_bloqueio }}"><i class="bi bi-lock-fill"></i> bloqueado</span>{% endif %}</td>
       <td>{{ l.validade|data }}{% if l.vencido %} <span class="badge bg-danger">vencido</span>{% endif %}</td>
       <td>{{ l.data_entrada|data('%d/%m/%Y %H:%M') }}</td><td class="text-end">{{ l.quantidade_inicial|numero }}</td>
       <td class="text-end fw-semibold">{{ l.saldo|numero }} {{ l.produto.unidade_medida }}</td>
       <td class="text-end">{{ l.custo_unitario|moeda }}</td><td class="text-end">{{ l.valor|moeda }}</td>
+      <td class="text-end d-print-none">{% if current_user.pode(Usuario.FARMACEUTICO) %}<a class="btn btn-sm {{ 'btn-outline-success' if l.bloqueado else 'btn-outline-danger' }}" href="{{ url_for('estoque.bloqueio_lote', id=l.id) }}" title="{{ 'Desbloquear' if l.bloqueado else 'Bloquear (recall, quarentena)' }}"><i class="bi bi-{{ 'unlock' if l.bloqueado else 'lock' }}"></i></a>{% endif %}</td>
     </tr>
-  {% else %}<tr><td colspan="9" class="text-center text-muted py-4">Nenhum lote encontrado.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="10" class="text-center text-muted py-4">Nenhum lote encontrado.</td></tr>{% endfor %}
   </tbody>
-  {% if lotes %}<tfoot class="table-light fw-semibold"><tr><td colspan="8">Total</td><td class="text-end">{{ lotes|sum(attribute='valor')|moeda }}</td></tr></tfoot>{% endif %}
+  {% if lotes %}<tfoot class="table-light fw-semibold"><tr><td colspan="8">Total</td><td class="text-end">{{ lotes|sum(attribute='valor')|moeda }}</td><td class="d-print-none"></td></tr></tfoot>{% endif %}
 </table></div></div>
 {% endblock %}

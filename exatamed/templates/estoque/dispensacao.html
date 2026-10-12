@@ -6,12 +6,16 @@
 <div class="alert alert-danger"><h2 class="h5"><i class="bi bi-exclamation-octagon-fill"></i> Alerta de alergia</h2>{{ alerta }}
   <div class="mt-2 small">Revise a prescrição. Para dispensar mesmo assim, marque a confirmação abaixo e envie novamente.</div></div>
 {% endif %}
-<form method="post" class="card" id="form-dispensacao"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
-  <div class="col-md-5"><label class="form-label obrigatorio">Paciente</label>
-    <select class="form-select" name="paciente_id" id="paciente" required><option value="">Selecione...</option>
-      {% for p in pacientes %}<option value="{{ p.id }}" data-alergias="{{ p.alergias or '' }}" data-plano="{{ p.plano_saude or '' }}" {% if form.paciente_id == p.id|string %}selected{% endif %}>{{ p.nome }}{% if p.cpf %} — {{ p.cpf }}{% endif %}</option>{% endfor %}
-    </select>
-    <div class="form-text" id="info-paciente"></div></div>
+<form method="post" class="card" id="form-dispensacao" data-url-alergias="{{ url_for('estoque.checar_alergias') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
+  <div class="col-md-5 position-relative"><label class="form-label obrigatorio" for="paciente-busca">Paciente</label>
+    <input type="hidden" name="paciente_id" id="paciente" value="{{ paciente_selecionado.id if paciente_selecionado else '' }}"
+      data-alergias="{{ paciente_selecionado.alergias or '' if paciente_selecionado else '' }}">
+    <input class="form-control" id="paciente-busca" autocomplete="off" required
+      placeholder="Digite nome, CPF ou Cartão SUS (mín. 2 caracteres)"
+      value="{{ paciente_selecionado.nome if paciente_selecionado else '' }}"
+      data-url="{{ url_for('estoque.buscar_pacientes') }}" role="combobox" aria-expanded="false" aria-controls="paciente-resultados">
+    <div class="list-group position-absolute w-100 shadow-sm busca-resultados" id="paciente-resultados" role="listbox" hidden></div>
+    <div class="form-text" id="info-paciente" aria-live="polite"></div></div>
   <div class="col-md-4"><label class="form-label">Médico prescritor</label>
     <select class="form-select" name="medico_id"><option value="">—</option>
       {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
@@ -48,53 +52,5 @@
 </div><div class="card-footer text-end"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Registrar dispensação</button></div></form>
 {% endblock %}
 {% block scripts %}
-<script>
-(function () {
-  const tabela = document.querySelector('#itens tbody');
-  const paciente = document.getElementById('paciente');
-  const urlAlergias = "{{ url_for('estoque.checar_alergias') }}";
-
-  function infoPaciente() {
-    const op = paciente.selectedOptions[0];
-    const alergias = op && op.dataset.alergias;
-    document.getElementById('info-paciente').innerHTML = alergias
-      ? '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Alergias: ' + alergias + '</span>'
-      : (op && op.value ? 'Sem alergias registradas.' : '');
-  }
-
-  async function verificar(linha) {
-    const produto = linha.querySelector('select').value;
-    const aviso = linha.querySelector('.aviso');
-    aviso.innerHTML = '';
-    if (!produto || !paciente.value) return;
-    const resp = await fetch(urlAlergias + '?paciente_id=' + paciente.value + '&produto_id=' + produto);
-    const dados = await resp.json();
-    const partes = [];
-    if (dados.conflitos.length) partes.push('<span class="text-danger fw-semibold"><i class="bi bi-exclamation-octagon-fill"></i> Conflito com alergia: ' + dados.conflitos.join(', ') + '</span>');
-    if (dados.controlado) partes.push('<span class="text-warning-emphasis"><i class="bi bi-shield-lock"></i> Controle especial (' + dados.controlado + ')</span>');
-    const origem = document.querySelector('[name=origem_id]').value;
-    if (origem && dados.saldos) partes.push('<span class="text-muted">Saldo na origem: ' + dados.saldos[origem] + '</span>');
-    aviso.innerHTML = partes.join(' · ');
-  }
-
-  function verificarTodos() { tabela.querySelectorAll('tr.item').forEach(verificar); }
-
-  tabela.addEventListener('change', e => { if (e.target.tagName === 'SELECT') verificar(e.target.closest('tr')); });
-  tabela.addEventListener('click', e => {
-    const botao = e.target.closest('.remover');
-    if (!botao) return;
-    if (tabela.querySelectorAll('tr.item').length > 1) botao.closest('tr').remove();
-    else botao.closest('tr').querySelectorAll('select, input').forEach(el => el.value = '');
-  });
-  document.getElementById('adicionar').addEventListener('click', () => {
-    const nova = tabela.querySelector('tr.item').cloneNode(true);
-    nova.querySelectorAll('select, input').forEach(el => el.value = '');
-    nova.querySelector('.aviso').innerHTML = '';
-    tabela.appendChild(nova);
-  });
-  paciente.addEventListener('change', () => { infoPaciente(); verificarTodos(); });
-  document.querySelector('[name=origem_id]').addEventListener('change', verificarTodos);
-  infoPaciente(); verificarTodos();
-})();
-</script>
+<script src="{{ url_for('static', filename='js/dispensacao.js') }}"></script>
 {% endblock %}

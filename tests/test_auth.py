@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 
 import pytest
-
 from conftest import SENHA, criar_usuario, entrar
+
 from exatamed import create_app, estoque
 from exatamed.models import Dispensacao, Localizacao, Medico, Movimentacao, Paciente, Produto, Usuario, db
 

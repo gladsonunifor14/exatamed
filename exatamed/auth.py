@@ -7,8 +7,9 @@ from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
+from werkzeug.security import check_password_hash, generate_password_hash
 
-from .models import Usuario, db
+from .models import TentativaLogin, Usuario, db
 
 bp = Blueprint("auth", __name__)
 login_manager = LoginManager()
@@ -17,6 +18,13 @@ login_manager.login_message = "Entre com seu usuário e senha para acessar o sis
 login_manager.login_message_category = "warning"
 
 SENHA_MINIMA = 8
+# Limite por endereço IP (complementa o bloqueio por usuário). Alto o bastante para não
+# bloquear um hospital inteiro que sai para a internet por um único IP.
+MAX_FALHAS_POR_IP = 30
+JANELA_IP = timedelta(minutes=15)
+# Hash usado quando o login não existe, para que o tempo de resposta não revele
+# quais logins são válidos.
+_HASH_FICTICIO = generate_password_hash("senha-ficticia-para-tempo-constante")
 MAX_TENTATIVAS = 5
 TEMPO_BLOQUEIO = timedelta(minutes=15)
 # Endpoints acessíveis sem login.
@@ -26,9 +34,16 @@ LIBERADOS_TROCA_SENHA = {"auth.minha_senha", "auth.logout", "static", "saude"}
 
 
 @login_manager.user_loader
-def carregar_usuario(usuario_id):
-    usuario = db.session.get(Usuario, int(usuario_id))
-    return usuario if usuario and usuario.ativo else None
+def carregar_usuario(identificador):
+    """A sessão guarda "id:versão". Se a versão mudou (senha, perfil ou desativação), a sessão expira."""
+    try:
+        usuario_id, versao = (int(parte) for parte in identificador.split(":"))
+    except ValueError:
+        return None
+    usuario = db.session.get(Usuario, usuario_id)
+    if not usuario or not usuario.ativo or usuario.versao_sessao != versao:
+        return None
+    return usuario
 
 
 def perfil_requerido(perfil_minimo):
@@ -108,8 +123,16 @@ def login():
     if request.method == "POST":
         login_digitado = request.form.get("login", "").strip().lower()
         senha = request.form.get("senha", "")
-        usuario = Usuario.query.filter(db.func.lower(Usuario.login) == login_digitado).first()
         agora = datetime.now()
+        ip = (request.remote_addr or "desconhecido")[:45]
+        if TentativaLogin.query.filter(TentativaLogin.ip == ip, TentativaLogin.data > agora - JANELA_IP).count() \
+                >= MAX_FALHAS_POR_IP:
+            flash("Muitas tentativas de acesso a partir deste endereço. Aguarde 15 minutos e tente novamente.",
+                  "danger")
+            return render_template("auth/login.html"), 429
+        usuario = Usuario.query.filter(db.func.lower(Usuario.login) == login_digitado).first()
+        if usuario is None:
+            check_password_hash(_HASH_FICTICIO, senha)
         if usuario and usuario.bloqueado_ate and usuario.bloqueado_ate > agora:
             minutos = int((usuario.bloqueado_ate - agora).total_seconds() // 60) + 1
             flash(f"Usuário bloqueado por excesso de tentativas. Tente novamente em {minutos} minuto(s).",
@@ -129,7 +152,9 @@ def login():
                 if usuario.tentativas_falhas >= MAX_TENTATIVAS:
                     usuario.bloqueado_ate = agora + TEMPO_BLOQUEIO
                     usuario.tentativas_falhas = 0
-                db.session.commit()
+            db.session.add(TentativaLogin(ip=ip, data=agora))
+            TentativaLogin.query.filter(TentativaLogin.data < agora - timedelta(days=1)).delete()
+            db.session.commit()
             flash("Usuário ou senha inválidos.", "danger")
     return render_template("auth/login.html")
 
@@ -161,7 +186,9 @@ def minha_senha():
         else:
             current_user.definir_senha(nova)
             current_user.deve_trocar_senha = False
+            current_user.encerrar_sessoes()
             db.session.commit()
+            login_user(current_user._get_current_object())  # renova esta sessão; as demais deixam de valer
             flash("Senha alterada com sucesso.", "success")
             return redirect(url_for("principal.painel"))
     return render_template("auth/minha_senha.html")
@@ -180,7 +207,12 @@ def usuarios():
 @bp.route("/usuarios/<int:id>/editar", methods=["GET", "POST"])
 @perfil_requerido(Usuario.ADMIN)
 def editar_usuario(id=None):
+    from .lgpd import registrar_acesso
+    from .models import RegistroAcesso
     usuario = db.get_or_404(Usuario, id) if id else Usuario(ativo=True, perfil=Usuario.AUXILIAR)
+    if usuario.anonimizado:
+        flash("Este usuário foi anonimizado e não pode mais ser alterado.", "warning")
+        return redirect(url_for(".usuarios"))
     if request.method == "POST":
         f = request.form
         erros = []
@@ -209,6 +241,8 @@ def editar_usuario(id=None):
             for erro in erros:
                 flash(erro, "danger")
         else:
+            if usuario.id and (senha or perfil != usuario.perfil or not ativo):
+                usuario.encerrar_sessoes()
             usuario.nome = nome
             usuario.login = login_novo
             usuario.email = f.get("email", "").strip() or None
@@ -223,8 +257,12 @@ def editar_usuario(id=None):
                 usuario.bloqueado_ate = None
             db.session.add(usuario)
             db.session.commit()
+            registrar_acesso(RegistroAcesso.ALTERAR if id else RegistroAcesso.INCLUIR, "usuario",
+                             usuario.id, usuario.login)
             flash(f"Usuário {usuario.login} salvo.", "success")
             return redirect(url_for(".usuarios"))
+    if id and request.method == "GET":
+        registrar_acesso(RegistroAcesso.VISUALIZAR, "usuario", usuario.id, usuario.login)
     return render_template("auth/usuario_form.html", usuario=usuario, perfis=Usuario.PERFIS,
                            form=request.form if request.method == "POST" else None)
 

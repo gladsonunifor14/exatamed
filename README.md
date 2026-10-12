@@ -8,7 +8,9 @@ custo pelo método **PEPS** (primeiro que entra, primeiro que sai) e gera os
 relatórios de consumo, compras e inventário que a farmácia precisa no dia a dia.
 
 [![Licença: Apache 2.0](https://img.shields.io/badge/licen%C3%A7a-Apache%202.0-blue.svg)](LICENSE)
+![Versão](https://img.shields.io/badge/vers%C3%A3o-2.0.0-0b6e6e)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+[![CI](https://github.com/gladsonunifor14/exatamed/actions/workflows/ci.yml/badge.svg)](https://github.com/gladsonunifor14/exatamed/actions/workflows/ci.yml)
 ![Flask](https://img.shields.io/badge/flask-3.x-lightgrey)
 
 ![Painel do ExataMed](docs/img/painel.png)
@@ -18,6 +20,10 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 > 📘 **Vai usar o sistema?** Leia o [Guia do usuário](docs/GUIA_DO_USUARIO.md): primeiro acesso,
 > roteiro de implantação, dispensação, relatórios e perguntas frequentes. O mesmo guia está dentro
 > do sistema, no menu **Ajuda**.
+>
+> 🛠️ **Vai implantar ou operar?** Veja o [Runbook de operação](docs/OPERACAO.md) (configuração,
+> monitoramento, backup, incidentes). Avaliação do produto e roadmap:
+> [docs/AVALIACAO_PRODUTO.md](docs/AVALIACAO_PRODUTO.md). Novidades: [CHANGELOG](CHANGELOG.md).
 
 ## Sumário
 
@@ -28,6 +34,9 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - [Análises e relatórios](#análises-e-relatórios)
 - [Usuários, login e perfis de acesso](#usuários-login-e-perfis-de-acesso)
 - [Guia do usuário e primeiros passos](#guia-do-usuário-e-primeiros-passos)
+- [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd)
+- [Auditoria e integridade dos dados](#auditoria-e-integridade-dos-dados)
+- [Segurança e operação](#segurança-e-operação)
 - [Tecnologias](#tecnologias)
 - [Instalação e execução](#instalação-e-execução)
 - [Publicação na web (Render)](#publicação-na-web-render)
@@ -44,14 +53,21 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - Estoque por **lote, validade e localização**, com custo unitário por camada.
 - **Entradas** (nota fiscal/empenho), **saídas avulsas** (consumo de setor, perdas, avarias),
   **transferências entre locais** e **dispensação ao paciente**.
-- Baixa automática pelo método **PEPS**, sem consumir lotes vencidos.
+- Baixa automática pelo método **PEPS**, sem consumir lotes vencidos ou bloqueados, com
+  **valores decimais exatos** e baixa atômica (o saldo nunca fica negativo, mesmo com operações simultâneas).
+- **Devolução e estorno de dispensação** (total ou parcial) ao mesmo lote e custo, sem apagar o original.
+- **Bloqueio de lote** (recall, interdição, quarentena) em todos os locais.
 - **Alertas de alergia** em tempo real na dispensação e bloqueio até a ciência do farmacêutico.
 - Exigência de **médico prescritor e nº de prescrição** para itens de controle especial
   (listas da Portaria SVS/MS nº 344/1998 e antimicrobianos).
 - **Contagem de inventário** com ajustes rastreáveis.
 - Painel com indicadores, itens a repor e lotes vencidos ou próximos do vencimento.
-- Seis relatórios gerenciais, com impressão e **exportação em CSV** (compatível com Excel).
-- Histórico imutável de movimentações para auditoria, com o **usuário** responsável por cada uma.
+- Sete relatórios, incluindo a **escrituração de controlados**, com impressão e **exportação em CSV**.
+- **Busca incremental de pacientes** (nome, CPF ou Cartão SUS) na dispensação.
+- Histórico de movimentações **selado contra adulteração** (cadeia HMAC), **trilha de auditoria**
+  de cadastros e verificação de integridade.
+- **Adequação à LGPD:** documentos mascarados em listas, relatórios e exportações, registro de
+  acessos a dados pessoais, relatórios sem identificação e anonimização de cadastros.
 - **Login com perfis de acesso** (auxiliar, farmacêutico, administrador), bloqueio após tentativas
   erradas e senha provisória no primeiro acesso.
 
@@ -126,6 +142,7 @@ estoque.
 | 4 | **Consumo por paciente** | Dispensações, itens e custo por paciente; ao filtrar um paciente, os itens consumidos. |
 | 5 | **Estoque mínimo/máximo e pedido de compra** | Saldo utilizável, mínimo, máximo, consumo médio diário (CMD), cobertura em dias, situação e **sugestão de compra** com custo estimado. |
 | 6 | **Inventário** | Posição por lote e local, valorizada pelo custo PEPS, com destaque para lotes vencidos e a vencer em 90 dias, e resumo por produto. |
+| 7 | **Escrituração de controlados** | Livro dos medicamentos de controle especial (Portaria 344/98): saldo anterior, entradas, saídas com paciente, prescritor e responsável, saldo corrente e final. Restrito ao farmacêutico; exportação registrada. |
 
 **Cálculo do pedido de compra**
 
@@ -186,13 +203,63 @@ O ExataMed traz um onboarding em três partes:
 
 ![Página de ajuda do ExataMed](docs/img/ajuda.png)
 
+## Proteção de dados pessoais (LGPD)
+
+O ExataMed trata dados de saúde, que são dados pessoais **sensíveis** pela LGPD (Lei nº 13.709/2018).
+Medidas implementadas:
+
+| Medida | Como funciona |
+|---|---|
+| **Mascaramento** | CPF (`***.982.247-**`), Cartão SUS (`***********5933`), RG e telefone aparecem parcialmente ocultos em listas, na seleção de pacientes, nos relatórios e nos CSV. Completos só na ficha do cadastro e no comprovante de dispensação. |
+| **Registro de acessos** (art. 37) | Tabela `registros_acesso`: quem visualizou a ficha, incluiu, alterou, abriu comprovante, exportou relatório com pacientes ou anonimizou um cadastro, com data, hora e IP. Consulta em *LGPD: registro de acessos* (administrador). |
+| **Relatórios sem identificação** | Opção *Ocultar identificação dos pacientes*: o nome vira um código (`P-000123`) e os documentos são omitidos, na tela e no CSV. |
+| **Anonimização** (arts. 16 e 18) | O administrador anonimiza paciente, médico ou usuário de forma irreversível, informando o motivo. Os dados identificadores são apagados (da data de nascimento fica o ano) e o histórico de estoque é preservado. |
+| **Prazo de guarda** | Quem teve dispensação de medicamento de controle especial (inclusive antimicrobianos) nos últimos 2 anos só pode ser anonimizado após esse prazo (`PRAZO_GUARDA_CONTROLADOS_ANOS` em `exatamed/lgpd.py`). |
+| **Cópias anonimizadas** | `flask --app exatamed anonimizar-banco --confirmar` anonimiza todos os dados pessoais de uma **cópia** do banco, para treinamento e testes (bloqueado com `EXATAMED_ENV=production`). |
+
+Essas funções apoiam a adequação, mas não a substituem: a instituição continua responsável pela
+política de privacidade, pela base legal de cada tratamento, pela indicação do encarregado (DPO)
+e pelo atendimento aos titulares.
+
+## Auditoria e integridade dos dados
+
+| Mecanismo | O que garante |
+|---|---|
+| **Cadeia selada (HMAC-SHA256)** | Movimentações de estoque, acessos a dados pessoais e a trilha de auditoria recebem número de sequência e assinatura encadeada, com chave fora do banco (`EXATAMED_CHAVE_AUDITORIA`). Alteração, remoção ou inserção direta no banco é detectada e localizada. |
+| **Trilha de auditoria** | Toda inclusão, alteração e exclusão de cadastros, com usuário, IP e valores de antes e depois (dados pessoais só como "alterado", compatível com a LGPD). |
+| **Conciliação de saldos** | O saldo de cada lote é conferido com a soma das suas movimentações. |
+| **Nada é apagado** | Correções são novas movimentações (devolução, ajuste de inventário), sempre com motivo e usuário. |
+| **Restrições no banco** | Saldo não negativo, quantidades e custos válidos, número de dispensação único por ano. |
+
+A verificação roda em *Integridade dos registros* (administrador) ou por linha de comando,
+para agendamento e alerta:
+
+```bash
+flask --app exatamed verificar-integridade   # código de saída 1 se houver problema
+```
+
+## Segurança e operação
+
+- **CSP estrita** (`script-src 'self'`), sem JavaScript inline; Bootstrap servido localmente
+  (funciona em redes sem internet).
+- Sessões encerradas ao trocar a senha, mudar o perfil ou desativar o usuário; limite de falhas
+  de login por usuário e por IP; `Cache-Control: no-store` em páginas autenticadas.
+- **Logs em JSON** com `X-Request-ID` (sem query string, que pode conter dados pessoais) e
+  `/saude` com latência do banco (503 se o banco cair).
+- **CI** no GitHub Actions: lint (ruff), testes no SQLite e no PostgreSQL (incluindo concorrência
+  real), `pip-audit` e build da imagem Docker.
+- **Docker**: `Dockerfile` (usuário sem privilégios, health check) e `docker-compose.yml` com
+  PostgreSQL para instalação no próprio hospital. Dependências travadas em `requirements.lock`.
+
+Detalhes no [Runbook de operação](docs/OPERACAO.md).
+
 ## Tecnologias
 
 - [Python](https://www.python.org/) 3.10+
 - [Flask](https://flask.palletsprojects.com/) 3 e [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/)
 - [SQLite](https://www.sqlite.org/) no uso local e [PostgreSQL](https://www.postgresql.org/) na publicação (driver psycopg 3)
 - [gunicorn](https://gunicorn.org/) como servidor de produção
-- [Bootstrap](https://getbootstrap.com/) 5 e Bootstrap Icons (via CDN)
+- [Bootstrap](https://getbootstrap.com/) 5.3 e Bootstrap Icons, servidos localmente (licenças em `exatamed/static/vendor/LICENSES.md`)
 - [Flask-Login](https://flask-login.readthedocs.io/) e [Flask-WTF](https://flask-wtf.readthedocs.io/) (login e proteção CSRF)
 - [Python-Markdown](https://python-markdown.github.io/) (página de ajuda)
 - [pytest](https://pytest.org/) para os testes
@@ -220,6 +287,9 @@ flask --app exatamed demo
 flask --app exatamed run          # ou: python run.py
 ```
 
+**Com Docker (servidor próprio):** `cp .env.exemplo .env`, preencha as chaves e rode
+`docker compose up -d` (sobe o ExataMed e o PostgreSQL). Veja o [runbook](docs/OPERACAO.md).
+
 Acesse <http://127.0.0.1:5000> e entre com um dos usuários (com os dados de demonstração:
 `admin` / `admin1234`). O banco de dados é criado automaticamente em `instance/exatamed.db`,
 já com as localizações *Farmácia SUS* e *Farmácia Particular*. Bancos criados por versões
@@ -230,7 +300,9 @@ anteriores são atualizados automaticamente na inicialização.
 | Variável de ambiente | Descrição | Padrão |
 |----------------------|-----------|--------|
 | `EXATAMED_SECRET_KEY` | Chave secreta do Flask (sessões e mensagens). **Obrigatória em produção.** | `dev-troque-esta-chave` |
-| `EXATAMED_ENV` | `production` ativa cookies seguros (HTTPS), HSTS e exige a chave secreta. | — |
+| `EXATAMED_ENV` | `production` ativa cookies seguros (HTTPS, `__Host-`), HSTS, logs em JSON e exige a chave secreta. | — |
+| `EXATAMED_CHAVE_AUDITORIA` | Chave HMAC da cadeia de auditoria. **Defina em produção, guarde em cofre e nunca altere.** | a chave secreta |
+| `EXATAMED_LOG_FORMATO` / `EXATAMED_LOG_NIVEL` | `json` ou `texto`; nível de log. | `json` em produção / `INFO` |
 | `EXATAMED_ADMIN_LOGIN` / `EXATAMED_ADMIN_SENHA` | Criam o primeiro administrador, se não houver usuários. | — |
 | `EXATAMED_CARREGAR_DEMO` | `1` carrega os dados de demonstração na inicialização, se o banco estiver vazio (sem usuários de demonstração). Use só em ambientes de teste. | — |
 | `EXATAMED_DATABASE_URL` (ou `DATABASE_URL`) | URL do banco, ex.: `postgres://usuario:senha@host/exatamed`. URLs `postgres://` e `postgresql://` são convertidas automaticamente para o driver psycopg. | SQLite em `instance/` |
@@ -291,14 +363,22 @@ gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
 
 ```bash
 pip install -r requirements-dev.txt
-pytest
+pytest                                  # SQLite em memória
+
+# No PostgreSQL (inclui o teste de concorrência real), como no CI:
+EXATAMED_TESTE_BANCO=postgresql+psycopg://usuario:senha@localhost/exatamed_testes pytest
+ruff check .                            # lint
 ```
 
 Os testes cobrem a baixa PEPS, o bloqueio de lotes vencidos, as transferências, os alertas de
-alergia, o controle especial, os ajustes de inventário, os seis relatórios, a renderização de
+alergia, o controle especial, os ajustes de inventário, os sete relatórios, a renderização de
 todas as telas, o login (bloqueio, senha provisória, redirecionamento seguro, CSRF), as permissões
 de cada perfil, a numeração das dispensações (sequência por ano, colisão simultânea), a farmácia
-de origem e a atualização de bancos criados por versões anteriores.
+de origem, as medidas da LGPD (mascaramento, registro de acessos, relatórios anônimos,
+anonimização e prazo de guarda), a cadeia de auditoria (detecção de alteração, remoção e
+inserção direta no banco), a trilha de auditoria, a devolução, o bloqueio de lote, a escrituração
+de controlados, a CSP e as sessões, a concorrência real no PostgreSQL e a atualização de bancos
+criados por versões anteriores.
 
 ## Estrutura do projeto
 
@@ -306,6 +386,10 @@ de origem e a atualização de bancos criados por versões anteriores.
 exatamed/
 ├── exatamed/
 │   ├── __init__.py      # fábrica da aplicação, configuração e comandos "demo" e "criar-admin"
+│   ├── auditoria.py     # cadeia selada, trilha de auditoria e verificação de integridade
+│   ├── lgpd.py          # LGPD: registro de acessos e anonimização
+│   ├── numeros.py       # quantidades e valores decimais exatos
+│   ├── observabilidade.py  # logs em JSON e identificador de requisição
 │   ├── models.py        # modelos: Usuario, Paciente, Medico, Produto, Localizacao, Lote, Dispensacao, Movimentacao
 │   ├── estoque.py       # regras de negócio: entrada, baixa PEPS, transferência, dispensação, inventário
 │   ├── relatorios.py    # análises e relatórios
@@ -316,12 +400,18 @@ exatamed/
 │   ├── views.py         # telas de estoque, dispensação e relatórios
 │   ├── demo.py          # dados de demonstração
 │   ├── templates/       # páginas HTML (Jinja2)
-│   └── static/          # estilos
+│   └── static/          # estilos, JavaScript e bibliotecas servidas localmente (vendor/)
 ├── tests/               # testes automatizados (pytest)
 ├── docs/
 │   ├── GUIA_DO_USUARIO.md  # guia do usuário (também exibido no menu Ajuda)
+│   ├── OPERACAO.md         # runbook de operação
+│   ├── AVALIACAO_PRODUTO.md  # avaliação do produto e roadmap
 │   └── img/                # capturas de tela
+├── .github/workflows/ci.yml  # integração contínua
+├── Dockerfile, docker-compose.yml, .env.exemplo
 ├── render.yaml          # configuração de publicação no Render
+├── requirements.lock    # versões exatas (Docker e CI)
+├── CHANGELOG.md
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── run.py
@@ -330,16 +420,16 @@ exatamed/
 
 ## Roteiro
 
-Melhorias previstas para próximas versões:
+O roteiro completo, com prioridades e justificativas, está em
+[docs/AVALIACAO_PRODUTO.md](docs/AVALIACAO_PRODUTO.md). Próximos passos (P1):
 
-- [x] Autenticação de usuários e perfis de acesso (farmacêutico, auxiliar, administrador)
-- [x] Registro do usuário em cada movimentação
-- [ ] Recuperação de senha por e-mail
-- [ ] Escrituração de controlados e integração com o SNGPC/ANVISA
-- [ ] Devolução de itens não utilizados ao estoque
-- [ ] Leitura de código de barras / DataMatrix na entrada e na dispensação
-- [ ] Importação de notas fiscais eletrônicas (XML da NF-e)
-- [ ] Gráficos interativos no painel
+- [ ] Migrações versionadas (Alembic)
+- [ ] Dupla checagem de medicamentos de alta vigilância (MAV)
+- [ ] Leitura de código de barras / DataMatrix (GS1) na entrada e na dispensação
+- [ ] Integração com prescrição eletrônica e prontuário (HL7 FHIR)
+- [ ] Exportação para o SNGPC (ANVISA)
+- [ ] Autenticação em dois fatores e SSO com o diretório do hospital
+- [ ] Relatório dos dados de um titular (direito de acesso, art. 18 da LGPD)
 
 ## Como contribuir
 
