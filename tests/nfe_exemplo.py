@@ -17,7 +17,7 @@ ITENS_PADRAO = [
     {"codigo": "DIP500", "descricao": "DIPIRONA SODICA 500MG/ML AMP 2ML CX C/10", "gtin": "7891234567895",
      "anvisa": "1023500010015", "unidade": "CX", "quantidade": "3", "unitario": "25.00", "frete": "3.00",
      "desconto": "1.50",
-     "lotes": [("DP2501", "2", "2026-01-10", "2028-01-31"), ("DP2502", "1", "2026-02-10", "2028-02-29")]},
+     "lotes": [("DP2501", "2", "2026-01-10", "2099-01-31"), ("DP2502", "1", "2026-02-10", "2099-02-28")]},
     # Material sem rastreabilidade (lote e validade informados na conferência).
     {"codigo": "SER10", "descricao": "SERINGA 10ML LUER LOCK", "gtin": "SEM GTIN", "anvisa": "", "unidade": "UN",
      "quantidade": "100", "unitario": "0.45", "frete": "0", "desconto": "0", "lotes": []},

@@ -22,7 +22,7 @@ def test_le_nfe_autorizada_com_rastro():
     assert dipirona["custo_unitario"] == Decimal("25.5")  # (75 + 3 frete - 1,50 desconto) / 3 CX
     assert dipirona["gtin"] == "7891234567895" and dipirona["registro_anvisa"] == "1023500010015"
     assert [(l["lote"], l["quantidade"], l["validade"]) for l in dipirona["lotes"]] == [
-        ("DP2501", 2, date(2028, 1, 31)), ("DP2502", 1, date(2028, 2, 29))]
+        ("DP2501", 2, date(2099, 1, 31)), ("DP2502", 1, date(2099, 2, 28))]
     assert seringa["gtin"] == "" and seringa["lotes"] == [{"lote": "", "quantidade": 100, "fabricacao": None,
                                                            "validade": None}]
 
@@ -88,8 +88,8 @@ def _confirmacao(b, **extra):
     validade = (date.today() + timedelta(days=400)).isoformat()
     dados = {"localizacao_id": b["sus"].id,
              "item_1_importar": "1", "item_1_produto": b["dipirona"].id, "item_1_fator": "10",
-             "item_1_lote_0": "DP2501", "item_1_validade_0": "2028-01-31",
-             "item_1_lote_1": "DP2502", "item_1_validade_1": "2028-02-29",
+             "item_1_lote_0": "DP2501", "item_1_validade_0": "2099-01-31",
+             "item_1_lote_1": "DP2502", "item_1_validade_1": "2099-02-28",
              "item_2_importar": "1", "item_2_produto": b["seringa"].id, "item_2_fator": "1",
              "item_2_lote_0": "SR77", "item_2_validade_0": validade}
     dados.update(extra)
