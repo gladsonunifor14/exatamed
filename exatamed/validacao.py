@@ -41,6 +41,15 @@ def cns_valido(cns):
     return sum(int(c) * peso for c, peso in zip(d, range(15, 0, -1))) % 11 == 0
 
 
+def gtin_valido(gtin):
+    """GTIN-8, 12, 13 ou 14 (código de barras GS1) com dígito verificador módulo 10."""
+    d = somente_digitos(gtin)
+    if len(d) not in (8, 12, 13, 14) or d != (gtin or "").strip():
+        return False
+    soma = sum(int(c) * (3 if i % 2 == 0 else 1) for i, c in enumerate(reversed(d[:-1])))
+    return (10 - soma % 10) % 10 == int(d[-1])
+
+
 # ---------------------------------------------------------------- mascaramento (LGPD)
 # Exibem só parte do documento, o suficiente para conferência, em listas, relatórios
 # e exportações. O dado completo fica visível apenas na ficha do cadastro.

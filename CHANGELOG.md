@@ -3,6 +3,21 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.1.0] — 2026-10-14
+
+### Adicionado
+- Importação do XML da NF-e (modelo 55, leiautes 4.00 e 3.10) em **Estoque → Entrada**, com
+  conferência antes de confirmar: produto, fator de conversão de unidade, lotes e validades.
+- Custo de aquisição por unidade com frete, seguro, outras despesas, IPI e ICMS-ST, menos desconto.
+- Sugestão do produto pelo código do fornecedor (memorizado a cada importação), GTIN ou registro ANVISA.
+- Lista de notas fiscais importadas, pendentes e descartadas; lotes ligados à nota de origem e
+  XML original guardado.
+- Campos **código de barras (GTIN)** e **registro ANVISA** no cadastro de produtos.
+
+### Segurança
+- XML lido com `defusedxml` (DTD e entidades recusadas), limite de 5 MB, apenas notas com
+  protocolo de autorização da SEFAZ e bloqueio de importação em dobro da mesma chave de acesso.
+
 ## [2.0.0] — 2026-10-11
 
 Evolução de MVP para produto auditável, seguro e operável. Detalhes e roadmap em

@@ -2,6 +2,7 @@
 # Para atualizar: pip install -r requirements.txt num venv novo e pip freeze > requirements.lock
 blinker==1.9.0
 click==8.5.0
+defusedxml==0.7.1
 Flask==3.1.3
 Flask-Login==0.6.3
 Flask-SQLAlchemy==3.1.1

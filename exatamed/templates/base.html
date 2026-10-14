@@ -30,6 +30,7 @@
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Estoque</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{{ url_for('estoque.entrada') }}"><i class="bi bi-box-arrow-in-down"></i> Entrada</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('estoque.notas_fiscais') }}"><i class="bi bi-receipt"></i> Notas fiscais (NF-e)</a></li>
             {% if current_user.pode(Usuario.FARMACEUTICO) %}<li><a class="dropdown-item" href="{{ url_for('estoque.saida') }}"><i class="bi bi-box-arrow-up"></i> Saída avulsa</a></li>{% endif %}
             <li><a class="dropdown-item" href="{{ url_for('estoque.transferencia') }}"><i class="bi bi-arrow-left-right"></i> Transferência entre locais</a></li>
             <li><hr class="dropdown-divider"></li>

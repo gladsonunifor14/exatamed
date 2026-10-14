@@ -133,6 +133,13 @@ def validar_produto(obj, erros):
         erros.append("Estoques mínimo e máximo não podem ser negativos.")
     if obj.estoque_maximo and obj.estoque_maximo < obj.estoque_minimo:
         erros.append("O estoque máximo deve ser maior ou igual ao mínimo.")
+    if obj.gtin:
+        if not validacao.gtin_valido(obj.gtin):
+            erros.append("Código de barras (GTIN) inválido: confira os dígitos.")
+        elif Produto.query.filter(Produto.gtin == obj.gtin, Produto.id != obj.id).first():
+            erros.append("Já existe um produto com este código de barras (GTIN).")
+    if obj.registro_anvisa:
+        obj.registro_anvisa = validacao.somente_digitos(obj.registro_anvisa) or obj.registro_anvisa
 
 
 def validar_localizacao(obj, erros):
@@ -231,6 +238,9 @@ CADASTROS = {
             Campo("unidade_medida", "Unidade de medida", "select", obrigatorio=True, opcoes=UNIDADES, largura=2),
             Campo("controle_especial", "Controle especial", "select", opcoes=LISTAS_CONTROLE, largura=2,
                   ajuda="Portaria 344/98"),
+            Campo("gtin", "Código de barras (GTIN/EAN)", largura=3,
+                  ajuda="Usado para reconhecer o produto na importação do XML da NF-e."),
+            Campo("registro_anvisa", "Registro ANVISA", largura=3),
             Campo("localizacao_padrao_id", "Localização padrão", "select", opcoes=_opcoes_localizacao,
                   largura=4, secao="Estoque",
                   ajuda="Lote, validade, local e custo são informados em cada entrada de estoque."),
