@@ -16,7 +16,14 @@
       <td><span class="badge {{ {'IMPORTADA': 'bg-success', 'PENDENTE': 'bg-warning text-dark', 'DESCARTADA': 'bg-secondary'}[n.situacao] }}">{{ n.situacao_descricao }}</span></td>
       <td>{{ n.localizacao or '' }}</td>
       <td class="small">{% if n.importada_em %}{{ n.importada_em|data('%d/%m/%Y %H:%M') }}{% if n.usuario %} · {{ n.usuario.login }}{% endif %}{% endif %}</td>
-      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('estoque.conferir_nfe', id=n.id) }}">{{ 'Conferir' if n.situacao == 'PENDENTE' else 'Ver' }}</a></td>
+      <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('estoque.conferir_nfe', id=n.id) }}">{{ 'Conferir' if n.situacao == 'PENDENTE' else 'Ver' }}</a>
+        {% if n.situacao == 'DESCARTADA' and current_user.pode(Usuario.FARMACEUTICO) %}
+        <form method="post" action="{{ url_for('estoque.excluir_nfe', id=n.id) }}" class="d-inline" data-confirmar="Excluir a {{ n.documento }} descartada? Esta ação não pode ser desfeita.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" aria-label="Excluir {{ n.documento }}"><i class="bi bi-trash"></i> Excluir</button></form>
+        {% elif n.situacao == 'IMPORTADA' %}
+        <span class="btn btn-sm btn-outline-secondary disabled" title="Nota importada: é o documento de origem dos lotes e não pode ser excluída" aria-label="Nota importada: exclusão bloqueada"><i class="bi bi-lock"></i></span>
+        {% endif %}</td>
     </tr>
   {% else %}<tr><td colspan="8" class="text-center text-muted py-4">Nenhuma nota importada. Use <em>Importar XML</em> na entrada de estoque.</td></tr>{% endfor %}
   </tbody>

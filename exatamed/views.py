@@ -5,13 +5,14 @@ import io
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
 from . import entrada_nfe, estoque, relatorios
 from .ajuda import primeiros_passos
 from .auth import perfil_requerido
+from .cadastros import CADASTROS, LISTAS_CONTROLE, UNIDADES, preencher
 from .estoque import EstoqueError
 from .lgpd import registrar_acesso
 from .models import (
@@ -209,7 +210,8 @@ def conferir_nfe(id):
                                      "ultimo_custo": entrada_nfe.ultimo_custo(produto.id) if produto else None}
     formulario = request.form if request.method == "POST" else None
     return render_template("estoque/nfe_conferencia.html", nota=nota, dados=dados, sugestoes=sugestoes,
-                           origens=entrada_nfe.ORIGENS_SUGESTAO, form=formulario, **_contexto_formularios())
+                           origens=entrada_nfe.ORIGENS_SUGESTAO, form=formulario, listas_controle=LISTAS_CONTROLE,
+                           unidades=UNIDADES, tipos=Produto.TIPOS, **_contexto_formularios())
 
 
 @bp_estoque.route("/nfe/<int:id>/descartar", methods=["POST"])
@@ -222,6 +224,45 @@ def descartar_nfe(id):
     except EstoqueError as erro:
         flash(str(erro), "danger")
     return redirect(url_for(".notas_fiscais"))
+
+
+@bp_estoque.route("/nfe/<int:id>/excluir", methods=["POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def excluir_nfe(id):
+    nota = db.get_or_404(NotaFiscal, id)
+    documento = nota.documento
+    try:
+        entrada_nfe.excluir(nota)
+        db.session.commit()
+        flash(f"{documento} excluída.", "success")
+    except EstoqueError as erro:
+        db.session.rollback()
+        flash(str(erro), "danger")
+    return redirect(url_for(".notas_fiscais"))
+
+
+@bp_estoque.route("/nfe/<int:id>/produto", methods=["POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def cadastrar_produto_nfe(id):
+    """Cadastra, sem sair da conferência, o produto de um item da nota que não está no sistema."""
+    nota = db.get_or_404(NotaFiscal, id)
+    if nota.situacao != NotaFiscal.PENDENTE:
+        return jsonify(erros=["Esta nota não está mais em conferência."]), 409
+    cadastro = CADASTROS["produtos"]
+    dados = request.form.to_dict()
+    dados["ativo"] = "on"
+    produto = Produto()
+    with db.session.no_autoflush:
+        erros = preencher(cadastro, produto, dados)
+    if erros:
+        db.session.rollback()
+        return jsonify(erros=erros), 422
+    db.session.add(produto)
+    db.session.commit()
+    texto = str(produto) + (f" [{produto.principio_ativo}]" if produto.principio_ativo else "")
+    return jsonify(id=produto.id, texto=texto,
+                   unidade=produto.unidade_medida, controle=produto.controle_especial or "",
+                   aviso=getattr(produto, "aviso_cadastro", None)), 201
 
 
 @bp_estoque.route("/notas")

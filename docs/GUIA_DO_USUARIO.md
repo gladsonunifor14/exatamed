@@ -94,9 +94,22 @@ Acesse **Cadastros → Medicamentos e materiais → Novo** e preencha:
 | **Nome comercial** e **princípio ativo (DCB)** | O princípio ativo também é usado na verificação de alergias |
 | **Apresentação** | Por exemplo *500 mg comprimido* ou *1 g/2 mL ampola* |
 | **Unidade de medida** | A unidade em que o item é contado e dispensado (AMP, CP, FR, UN...) |
-| **Controle especial** | A lista da Portaria 344/98 (A1, B1, C1...) ou antimicrobiano. Itens controlados exigem médico e número da prescrição, e só o farmacêutico pode dispensá-los |
+| **Controle especial** | Preenchido sozinho a partir do princípio ativo (veja abaixo). A lista da Portaria 344/98 (A1, B1, C1...), antimicrobiano ou agonista GLP-1 (RDC 471/2021). Itens controlados exigem médico e número da prescrição, e só o farmacêutico pode dispensá-los |
 | **Alertas de alergia** | Substâncias ou classes que disparam alerta, separadas por vírgula. Exemplo: *penicilinas, betalactâmicos* |
 | **Estoque mínimo e máximo** | Quando o saldo chega ao mínimo, o sistema sugere comprar até o máximo |
+
+**Classificação automática do controle especial.** Ao digitar o princípio ativo (ou, na falta
+dele, o nome comercial), o sistema procura a substância numa tabela de referência e já escolhe a
+lista: *sulfato de morfina* vira **A1**, *cloridrato de tramadol* **A2**, *midazolam* **B1**,
+*haloperidol* **C1**, *ceftriaxona* **antimicrobiano**, e assim por diante. Associações recebem a
+lista mais restritiva (*diazepam + amitriptilina* → B1). A mensagem em verde mostra a substância
+encontrada; confira e, se for o caso, escolha outra lista (a escolha manual vale, com um aviso ao
+salvar). Se o campo ficar em *Não controlado* para uma substância da tabela, o sistema classifica
+ao salvar. A tabela cobre as substâncias de uso hospitalar mais comuns, não as listas completas:
+uma substância que não aparece nela pode ser controlada, e a classificação deve ser conferida a
+cada atualização do Anexo I da Portaria 344/98 e da lista da RDC 471/2021.
+
+![Controle especial preenchido pelo princípio ativo](img/controle_especial.png)
 
 **Lote, validade, localização e custo não ficam no cadastro do produto:** eles são informados em
 cada entrada de estoque, porque o mesmo produto pode ter vários lotes.
@@ -147,7 +160,7 @@ Na conferência, para cada item da nota:
 1. **Produto no ExataMed.** O sistema sugere o produto pelo código do fornecedor (se a nota de
    um mesmo fornecedor já foi importada antes), pelo código de barras (GTIN) ou pelo registro
    ANVISA cadastrados no produto. Sem sugestão, escolha o produto na lista; se ele for novo,
-   cadastre-o antes. Para acertar as próximas notas sozinho, preencha o **código de barras** e o
+   use **Cadastrar produto** no próprio item (veja abaixo). Para acertar as próximas notas sozinho, preencha o **código de barras** e o
    **registro ANVISA** no cadastro do produto.
 2. **Fator.** Converte a unidade da nota na unidade do estoque. Exemplo: a nota vende em *CX*
    com 10 ampolas e o produto é controlado em *AMP*, então o fator é 10. A tela mostra, na hora,
@@ -169,6 +182,27 @@ ICMS-ST, menos o desconto, dividido pela quantidade (e pelo fator).
 *NF-e número/série* e o sistema memoriza o produto e o fator de cada código do fornecedor. O XML
 original fica guardado. Em **Estoque → Notas fiscais (NF-e)** estão todas as notas, com a
 situação de cada uma. Uma nota ainda em conferência pode ser **descartada** e enviada de novo depois.
+
+### Cadastrar o produto durante a conferência
+
+Quando um item da nota não corresponde a nenhum produto, o farmacêutico clica em **Cadastrar
+produto** no próprio item, sem sair da conferência. O formulário já vem com a descrição da nota
+como nome, o código de barras, o registro ANVISA e a unidade da nota; complete o princípio ativo
+(o controle especial é preenchido sozinho), a apresentação e a **unidade do estoque** e clique em
+**Salvar e usar neste item**. O produto é criado, aparece na lista de todos os itens e fica
+escolhido no item; o que já foi preenchido na tela é mantido. Se a unidade do estoque for diferente
+da unidade da nota, ajuste o fator. O auxiliar não vê o botão: pede a um farmacêutico.
+
+![Cadastro do produto na conferência da NF-e](img/nfe_cadastrar_produto.png)
+
+### Excluir notas descartadas
+
+Em **Estoque → Notas fiscais (NF-e)**, o farmacêutico pode **excluir** uma nota **descartada**
+(botão *Excluir*, com confirmação). A exclusão fica registrada na trilha de auditoria.
+
+- **Nota importada não pode ser excluída** (cadeado na lista): ela é o documento de origem dos
+  lotes e das movimentações de estoque. Para corrigir uma entrada, use as operações de estoque.
+- **Nota aguardando conferência** precisa ser descartada antes de ser excluída.
 
 ### 6. Primeira dispensação
 
@@ -406,8 +440,8 @@ que seguem o procedimento do runbook de operação.
 | Dispensar itens de controle especial | | ✔ | ✔ |
 | Liberar dispensação com alerta de alergia | | ✔ | ✔ |
 | Saída avulsa e contagem de inventário | | ✔ | ✔ |
-| Cadastrar medicamentos e localizações | | ✔ | ✔ |
-| Excluir registros | | ✔ | ✔ |
+| Cadastrar medicamentos e localizações (inclusive na conferência da NF-e) | | ✔ | ✔ |
+| Excluir registros e notas fiscais descartadas | | ✔ | ✔ |
 | Registrar devolução de dispensação | | ✔ | ✔ |
 | Bloquear e desbloquear lotes | | ✔ | ✔ |
 | Escrituração de controlados | | ✔ | ✔ |

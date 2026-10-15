@@ -3,6 +3,25 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.2.0] — 2026-10-15
+
+### Adicionado
+- Classificação automática do controle especial no cadastro de medicamentos, pelo princípio ativo
+  (ou pelo nome, na falta dele), com tabela de referência das listas da Portaria 344/98 e dos
+  antimicrobianos da RDC 471/2021. Associações recebem a lista mais restritiva; a escolha manual
+  diferente da tabela é mantida com aviso.
+- Lista "Agonista GLP-1 com retenção de receita (RDC 471/2021, IN 360/2025)".
+- Cadastro do produto na própria conferência da NF-e (farmacêutico), com os dados do XML já
+  preenchidos; o produto fica escolhido no item sem perder o que foi conferido.
+- Exclusão de notas fiscais descartadas em **Estoque → Notas fiscais (NF-e)** (farmacêutico).
+
+### Alterado
+- Notas importadas não podem ser excluídas (documento de origem dos lotes); notas em conferência
+  precisam ser descartadas antes.
+
+### Corrigido
+- Erro de JavaScript ao abrir uma nota já importada.
+
 ## [2.1.0] — 2026-10-14
 
 ### Adicionado

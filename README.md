@@ -54,6 +54,10 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - **Importação do XML da NF-e** na entrada de estoque: lotes, validades e custo de aquisição
   (com frete, IPI e ICMS-ST) lidos da nota, conferência antes de confirmar, sugestão do produto
   por código do fornecedor, GTIN ou registro ANVISA e bloqueio de nota duplicada ou não autorizada.
+  Produto novo pode ser cadastrado na própria conferência; notas descartadas podem ser excluídas,
+  as importadas não.
+- **Classificação automática do controle especial** pelo princípio ativo (listas da Portaria
+  344/98, antimicrobianos e agonistas GLP-1 da RDC 471/2021), conferida pelo farmacêutico.
 - **Entradas** (nota fiscal/empenho), **saídas avulsas** (consumo de setor, perdas, avarias),
   **transferências entre locais** e **dispensação ao paciente**.
 - Baixa automática pelo método **PEPS**, sem consumir lotes vencidos ou bloqueados, com
