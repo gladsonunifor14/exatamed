@@ -2,6 +2,7 @@
 {% block titulo %}{{ nota.documento }}{% endblock %}
 {% block conteudo %}
 {% set editavel = nota.situacao == 'PENDENTE' %}
+{% set pode_cadastrar = editavel and current_user.pode(Usuario.FARMACEUTICO) %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
   <h1 class="h3 mb-0"><i class="bi bi-receipt"></i> {{ nota.documento }}
     <span class="badge {{ {'IMPORTADA': 'bg-success', 'PENDENTE': 'bg-warning text-dark', 'DESCARTADA': 'bg-secondary'}[nota.situacao] }} fs-6 align-middle">{{ nota.situacao_descricao }}</span></h1>
@@ -58,7 +59,10 @@
           <option value="">Selecione...</option>
           {% for p in produtos %}<option value="{{ p.id }}" data-unidade="{{ p.unidade_medida }}" {{ 'selected' if produto_sel == p.id|string }}>{{ p }}{% if p.principio_ativo %} [{{ p.principio_ativo }}]{% endif %}</option>{% endfor %}
         </select>
-        <div class="form-text">{% if s.origem %}<i class="bi bi-magic text-success"></i> Sugerido pelo {{ origens[s.origem] }}.{% else %}<i class="bi bi-question-circle"></i> Produto não reconhecido: selecione-o na lista (cadastre-o antes, se for novo).{% endif %}</div></div>
+        <div class="form-text dica-produto">{% if s.origem %}<i class="bi bi-magic text-success"></i> Sugerido pelo {{ origens[s.origem] }}.{% elif pode_cadastrar %}<i class="bi bi-question-circle"></i> Produto não reconhecido: selecione-o na lista ou cadastre-o aqui.{% else %}<i class="bi bi-question-circle"></i> Produto não reconhecido: selecione-o na lista. Se for novo, peça a um farmacêutico para cadastrá-lo.{% endif %}</div>
+        {% if pode_cadastrar %}<button type="button" class="btn btn-sm btn-outline-success mt-1" data-bs-toggle="modal" data-bs-target="#modal-produto"
+          data-item="{{ n }}" data-descricao="{{ item.descricao }}" data-gtin="{{ item.gtin }}" data-anvisa="{{ item.registro_anvisa }}"
+          data-unidade="{{ item.unidade|upper }}"><i class="bi bi-plus-circle"></i> Cadastrar produto</button>{% endif %}</div>
       <div class="col-md-2"><label class="form-label small mb-0" for="fator_{{ n }}">Fator ({{ item.unidade }} → unid. do estoque)</label>
         <input class="form-control form-control-sm fator-nfe" name="item_{{ n }}_fator" id="fator_{{ n }}" inputmode="decimal" value="{{ fator }}"></div>
       <div class="col-md-3 small pt-md-4 custo-estoque text-muted"></div>
@@ -94,6 +98,49 @@
 </div>
 </form>
 <form method="post" id="form-descartar" action="{{ url_for('estoque.descartar_nfe', id=nota.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% if pode_cadastrar %}
+<div class="modal fade" id="modal-produto" tabindex="-1" aria-labelledby="modal-produto-titulo" aria-hidden="true">
+<div class="modal-dialog modal-lg"><div class="modal-content">
+<form id="form-novo-produto" method="post" action="{{ url_for('estoque.cadastrar_produto_nfe', id=nota.id) }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="modal-header"><h2 class="modal-title h5" id="modal-produto-titulo"><i class="bi bi-capsule"></i> Cadastrar produto · item <span id="novo-item"></span></h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+  <div class="modal-body">
+    <p class="small text-muted mb-2">Na nota: <strong id="novo-descricao-nota"></strong>. Os dados vieram do XML; complete e confira antes de salvar.</p>
+    <div class="alert alert-danger d-none small" id="novo-erros" role="alert"></div>
+    <div class="row g-2">
+      <div class="col-md-4"><label class="form-label obrigatorio" for="novo_tipo">Tipo</label>
+        <select class="form-select" id="novo_tipo" name="tipo" required>{% for valor, rotulo in tipos.items() %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select></div>
+      <div class="col-md-8"><label class="form-label obrigatorio" for="novo_nome_comercial">Nome comercial (marca)</label>
+        <input class="form-control" id="novo_nome_comercial" name="nome_comercial" maxlength="200" required></div>
+      <div class="col-md-6"><label class="form-label" for="novo_principio_ativo">Princípio ativo (DCB)</label>
+        <input class="form-control" id="novo_principio_ativo" name="principio_ativo" maxlength="200"></div>
+      <div class="col-md-6"><label class="form-label" for="novo_apresentacao">Apresentação</label>
+        <input class="form-control" id="novo_apresentacao" name="apresentacao" maxlength="200" placeholder="Ex.: 500 mg/mL ampola 2 mL"></div>
+      <div class="col-md-4"><label class="form-label" for="novo_laboratorio">Laboratório fabricante</label>
+        <input class="form-control" id="novo_laboratorio" name="laboratorio" maxlength="200"></div>
+      <div class="col-md-3"><label class="form-label obrigatorio" for="novo_unidade_medida">Unidade do estoque</label>
+        <select class="form-select" id="novo_unidade_medida" name="unidade_medida" required><option value="">Selecione...</option>{% for u in unidades %}<option value="{{ u }}">{{ u }}</option>{% endfor %}</select></div>
+      <div class="col-md-5"><label class="form-label" for="novo_controle_especial">Controle especial</label>
+        <select class="form-select" id="novo_controle_especial" name="controle_especial" data-classificar="novo_principio_ativo,novo_nome_comercial">{% for valor, rotulo in listas_controle %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select></div>
+      <div class="col-md-4"><label class="form-label" for="novo_gtin">Código de barras (GTIN)</label>
+        <input class="form-control" id="novo_gtin" name="gtin" maxlength="14" inputmode="numeric"></div>
+      <div class="col-md-4"><label class="form-label" for="novo_registro_anvisa">Registro ANVISA</label>
+        <input class="form-control" id="novo_registro_anvisa" name="registro_anvisa" maxlength="20"></div>
+      <div class="col-md-2"><label class="form-label" for="novo_estoque_minimo">Estoque mín.</label>
+        <input class="form-control" id="novo_estoque_minimo" name="estoque_minimo" inputmode="decimal"></div>
+      <div class="col-md-2"><label class="form-label" for="novo_estoque_maximo">Estoque máx.</label>
+        <input class="form-control" id="novo_estoque_maximo" name="estoque_maximo" inputmode="decimal"></div>
+      <div class="col-12"><label class="form-label" for="novo_alertas_alergia">Alertas de alergia</label>
+        <input class="form-control" id="novo_alertas_alergia" name="alertas_alergia" placeholder="Ex.: penicilinas, betalactâmicos"></div>
+    </div>
+    <p class="form-text mb-0 mt-2">A <strong>unidade do estoque</strong> é a unidade em que o item é contado e dispensado. Se for diferente da unidade da nota (ex.: nota em CX, estoque em AMP), ajuste o <strong>fator</strong> do item depois de salvar.</p>
+  </div>
+  <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button class="btn btn-exata" id="novo-salvar"><i class="bi bi-check-lg"></i> Salvar e usar neste item</button></div>
+</form>
+</div></div></div>
+{% endif %}
 {% elif nota.situacao == 'IMPORTADA' %}
 <div class="card"><div class="card-header fw-semibold"><i class="bi bi-box-arrow-in-down"></i> Lotes que deram entrada
   · {{ nota.localizacao }} · {{ nota.importada_em|data('%d/%m/%Y %H:%M') }}{% if nota.usuario %} · {{ nota.usuario.login }}{% endif %}</div>
@@ -107,4 +154,8 @@
 </table></div></div>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/nfe.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/nfe.js') }}"></script>
+{% if nota.situacao == 'PENDENTE' and current_user.pode(Usuario.FARMACEUTICO) %}
+<script src="{{ url_for('static', filename='js/controle_especial.js') }}" data-url="{{ url_for('cadastros.classificar_controle') }}"></script>
+<script src="{{ url_for('static', filename='js/nfe_produto.js') }}"></script>
+{% endif %}{% endblock %}

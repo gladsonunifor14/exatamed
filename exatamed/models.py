@@ -420,6 +420,10 @@ class Movimentacao(SeladoMixin, db.Model):
     TRANSFERENCIA = "TRANSFERENCIA"
     AJUSTE = "AJUSTE"
     ESTORNO = "ESTORNO"
+    # Estorno (desfazimento) de uma movimentação: lançamento inverso, ligado à original por
+    # `origem`. O estorno de saída avulsa abate o consumo; os demais não são consumo.
+    ESTORNO_SAIDA = "ESTORNO_SAIDA"
+    ESTORNO_MOV = "ESTORNO_MOV"
     TIPOS = {
         ENTRADA: "Entrada",
         SAIDA: "Saída",
@@ -427,10 +431,16 @@ class Movimentacao(SeladoMixin, db.Model):
         TRANSFERENCIA: "Transferência",
         AJUSTE: "Ajuste de inventário",
         ESTORNO: "Devolução de dispensação",
+        ESTORNO_SAIDA: "Estorno de saída",
+        ESTORNO_MOV: "Estorno de movimentação",
     }
+    ESTORNOS = (ESTORNO_SAIDA, ESTORNO_MOV)
+    # Tipos que podem ser estornados na tela de movimentações (a dispensação vira devolução).
+    ESTORNAVEIS = (ENTRADA, SAIDA, DISPENSACAO, TRANSFERENCIA, AJUSTE)
     # Tipos que entram no cálculo de consumo. A devolução (ESTORNO, quantidade positiva)
     # abate o consumo da dispensação de origem: consumo líquido = dispensado - devolvido.
-    CONSUMO = (SAIDA, DISPENSACAO, ESTORNO)
+    # O estorno de saída avulsa abate a saída da mesma forma.
+    CONSUMO = (SAIDA, DISPENSACAO, ESTORNO, ESTORNO_SAIDA)
 
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(20), nullable=False, index=True)
@@ -482,7 +492,13 @@ class Movimentacao(SeladoMixin, db.Model):
 
     @property
     def tipo_descricao(self):
+        if self.tipo == self.ESTORNO_MOV and self.origem is not None:
+            return f"Estorno de {self.TIPOS[self.origem.tipo].lower()}"
         return self.TIPOS.get(self.tipo, self.tipo)
+
+    @property
+    def estorno_de_transferencia(self):
+        return self.tipo == self.ESTORNO_MOV and self.origem is not None and self.origem.tipo == self.TRANSFERENCIA
 
 
 @db.event.listens_for(Movimentacao, "before_insert")

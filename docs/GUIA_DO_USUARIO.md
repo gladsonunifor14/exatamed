@@ -94,9 +94,22 @@ Acesse **Cadastros → Medicamentos e materiais → Novo** e preencha:
 | **Nome comercial** e **princípio ativo (DCB)** | O princípio ativo também é usado na verificação de alergias |
 | **Apresentação** | Por exemplo *500 mg comprimido* ou *1 g/2 mL ampola* |
 | **Unidade de medida** | A unidade em que o item é contado e dispensado (AMP, CP, FR, UN...) |
-| **Controle especial** | A lista da Portaria 344/98 (A1, B1, C1...) ou antimicrobiano. Itens controlados exigem médico e número da prescrição, e só o farmacêutico pode dispensá-los |
+| **Controle especial** | Preenchido sozinho a partir do princípio ativo (veja abaixo). A lista da Portaria 344/98 (A1, B1, C1...), antimicrobiano ou agonista GLP-1 (RDC 471/2021). Itens controlados exigem médico e número da prescrição, e só o farmacêutico pode dispensá-los |
 | **Alertas de alergia** | Substâncias ou classes que disparam alerta, separadas por vírgula. Exemplo: *penicilinas, betalactâmicos* |
 | **Estoque mínimo e máximo** | Quando o saldo chega ao mínimo, o sistema sugere comprar até o máximo |
+
+**Classificação automática do controle especial.** Ao digitar o princípio ativo (ou, na falta
+dele, o nome comercial), o sistema procura a substância numa tabela de referência e já escolhe a
+lista: *sulfato de morfina* vira **A1**, *cloridrato de tramadol* **A2**, *midazolam* **B1**,
+*haloperidol* **C1**, *ceftriaxona* **antimicrobiano**, e assim por diante. Associações recebem a
+lista mais restritiva (*diazepam + amitriptilina* → B1). A mensagem em verde mostra a substância
+encontrada; confira e, se for o caso, escolha outra lista (a escolha manual vale, com um aviso ao
+salvar). Se o campo ficar em *Não controlado* para uma substância da tabela, o sistema classifica
+ao salvar. A tabela cobre as substâncias de uso hospitalar mais comuns, não as listas completas:
+uma substância que não aparece nela pode ser controlada, e a classificação deve ser conferida a
+cada atualização do Anexo I da Portaria 344/98 e da lista da RDC 471/2021.
+
+![Controle especial preenchido pelo princípio ativo](img/controle_especial.png)
 
 **Lote, validade, localização e custo não ficam no cadastro do produto:** eles são informados em
 cada entrada de estoque, porque o mesmo produto pode ter vários lotes.
@@ -147,7 +160,7 @@ Na conferência, para cada item da nota:
 1. **Produto no ExataMed.** O sistema sugere o produto pelo código do fornecedor (se a nota de
    um mesmo fornecedor já foi importada antes), pelo código de barras (GTIN) ou pelo registro
    ANVISA cadastrados no produto. Sem sugestão, escolha o produto na lista; se ele for novo,
-   cadastre-o antes. Para acertar as próximas notas sozinho, preencha o **código de barras** e o
+   use **Cadastrar produto** no próprio item (veja abaixo). Para acertar as próximas notas sozinho, preencha o **código de barras** e o
    **registro ANVISA** no cadastro do produto.
 2. **Fator.** Converte a unidade da nota na unidade do estoque. Exemplo: a nota vende em *CX*
    com 10 ampolas e o produto é controlado em *AMP*, então o fator é 10. A tela mostra, na hora,
@@ -169,6 +182,27 @@ ICMS-ST, menos o desconto, dividido pela quantidade (e pelo fator).
 *NF-e número/série* e o sistema memoriza o produto e o fator de cada código do fornecedor. O XML
 original fica guardado. Em **Estoque → Notas fiscais (NF-e)** estão todas as notas, com a
 situação de cada uma. Uma nota ainda em conferência pode ser **descartada** e enviada de novo depois.
+
+### Cadastrar o produto durante a conferência
+
+Quando um item da nota não corresponde a nenhum produto, o farmacêutico clica em **Cadastrar
+produto** no próprio item, sem sair da conferência. O formulário já vem com a descrição da nota
+como nome, o código de barras, o registro ANVISA e a unidade da nota; complete o princípio ativo
+(o controle especial é preenchido sozinho), a apresentação e a **unidade do estoque** e clique em
+**Salvar e usar neste item**. O produto é criado, aparece na lista de todos os itens e fica
+escolhido no item; o que já foi preenchido na tela é mantido. Se a unidade do estoque for diferente
+da unidade da nota, ajuste o fator. O auxiliar não vê o botão: pede a um farmacêutico.
+
+![Cadastro do produto na conferência da NF-e](img/nfe_cadastrar_produto.png)
+
+### Excluir notas descartadas
+
+Em **Estoque → Notas fiscais (NF-e)**, o farmacêutico pode **excluir** uma nota **descartada**
+(botão *Excluir*, com confirmação). A exclusão fica registrada na trilha de auditoria.
+
+- **Nota importada não pode ser excluída** (cadeado na lista): ela é o documento de origem dos
+  lotes e das movimentações de estoque. Para corrigir uma entrada, use as operações de estoque.
+- **Nota aguardando conferência** precisa ser descartada antes de ser excluída.
 
 ### 6. Primeira dispensação
 
@@ -247,6 +281,7 @@ devolvido). Não é possível devolver mais do que foi dispensado.
 | **Bloqueio de lote** | Estoque → Lotes e saldos → cadeado | Farmacêutico | Recall do fabricante, alerta ou interdição sanitária, quarentena |
 | **Lotes e saldos** | Estoque → Lotes e saldos | Todos | Ver o saldo de cada lote, com validade e custo |
 | **Movimentações** | Estoque → Movimentações | Todos | Histórico completo, com data, tipo, quantidade, custo e usuário |
+| **Estorno de movimentação** | Estoque → Movimentações → Estornar | Todos, com a senha de um farmacêutico ou administrador | Desfazer uma movimentação lançada por engano |
 
 **Contagem de inventário, passo a passo:**
 
@@ -269,6 +304,36 @@ exemplo *laudo de liberação nº 45/2026*). Bloqueios e desbloqueios ficam na t
 
 ![Lote bloqueado](img/lote_bloqueado.png)
 
+### Estorno de movimentação
+
+Uma movimentação lançada por engano (quantidade errada, lote trocado, local errado, lançamento em
+duplicidade) é desfeita pelo **estorno**, em **Estoque → Movimentações**, botão **Estornar** na
+linha da movimentação.
+
+1. Confira a movimentação e o que o estorno vai lançar (coluna *Estorno*).
+2. Informe o **motivo**.
+3. Um **farmacêutico ou administrador** informa o próprio usuário e a **senha** para autorizar.
+   O auxiliar pode iniciar o estorno, mas precisa da senha de um deles.
+4. Clique em **Estornar** e confirme.
+
+Nada é apagado: o estorno é um lançamento inverso, no mesmo lote e com o mesmo custo, ligado à
+movimentação original, que passa a mostrar *Estornada*. Quem autorizou fica registrado no estorno,
+que entra na cadeia de auditoria. Cada movimentação só pode ser estornada uma vez, e um estorno ou
+uma devolução não pode ser estornado.
+
+| Movimentação | O que o estorno faz |
+|---|---|
+| **Entrada** | Retira do lote a quantidade que entrou. Só é possível se o lote ainda tiver essa quantidade; se já houve saídas, estorne-as antes |
+| **Saída avulsa** | Devolve a quantidade ao lote. O consumo dos relatórios é abatido |
+| **Transferência** | Estorna as duas partes juntas: o estoque sai do destino e volta à origem |
+| **Ajuste de inventário** | Desfaz a diferença lançada na contagem |
+| **Dispensação** | Registra a devolução ao estoque do que ainda não foi devolvido (como em *Devolução de dispensação*) |
+
+Senhas erradas contam para o bloqueio do usuário, como no login. O estorno de uma entrada feita
+por importação de NF-e não reabre a nota.
+
+![Estorno de movimentação](img/estorno.png)
+
 ## Relatórios
 
 Acesse **Relatórios** no menu. Todos os relatórios podem ser **impressos** ou **exportados em
@@ -282,9 +347,15 @@ CSV**, que abre direto no Excel.
 | **Consumo por paciente** | Ver o que cada paciente recebeu e o custo (útil para faturamento) |
 | **Estoque mínimo/máximo e pedido de compra** | Montar o pedido de compra: mostra o saldo, o consumo médio, para quantos dias o estoque dá e quanto comprar |
 | **Inventário** | Ver a posição do estoque por lote e local, com o valor total, os lotes perto do vencimento e os bloqueados |
-| **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Só para farmacêuticos; a exportação fica registrada |
+| **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Filtra por **classificação** (A1, B1, C1, antimicrobiano...) ou por medicamento. Só para farmacêuticos; a exportação fica registrada |
 
 O atalho **Consumo** na lista de pacientes abre o consumo daquele paciente nos últimos 12 meses.
+
+Na **escrituração de controlados**, escolha a **classificação** para ver só os medicamentos de uma
+lista (por exemplo, todos os da A1) ou um **medicamento** específico; deixe *Todas as
+classificações* e *Todos os controlados* para o livro completo.
+
+![Filtro por classificação na escrituração de controlados](img/livro_controlados_filtro.png)
 
 ## Como funciona o custo PEPS
 
@@ -406,9 +477,10 @@ que seguem o procedimento do runbook de operação.
 | Dispensar itens de controle especial | | ✔ | ✔ |
 | Liberar dispensação com alerta de alergia | | ✔ | ✔ |
 | Saída avulsa e contagem de inventário | | ✔ | ✔ |
-| Cadastrar medicamentos e localizações | | ✔ | ✔ |
-| Excluir registros | | ✔ | ✔ |
+| Cadastrar medicamentos e localizações (inclusive na conferência da NF-e) | | ✔ | ✔ |
+| Excluir registros e notas fiscais descartadas | | ✔ | ✔ |
 | Registrar devolução de dispensação | | ✔ | ✔ |
+| Autorizar estorno de movimentação (com a própria senha) | | ✔ | ✔ |
 | Bloquear e desbloquear lotes | | ✔ | ✔ |
 | Escrituração de controlados | | ✔ | ✔ |
 | Gerenciar usuários | | | ✔ |

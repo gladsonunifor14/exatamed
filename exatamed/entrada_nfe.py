@@ -143,3 +143,12 @@ def descartar(nota):
         raise EstoqueError("Só notas aguardando conferência podem ser descartadas.")
     nota.situacao = NotaFiscal.DESCARTADA
 
+
+def excluir(nota):
+    """Exclui uma nota descartada. A nota importada é o documento de origem dos lotes e não sai."""
+    if nota.situacao == NotaFiscal.IMPORTADA:
+        raise EstoqueError(f"A {nota.documento} foi importada e não pode ser excluída: ela é o documento "
+                           "de origem dos lotes e das movimentações de estoque.")
+    if nota.situacao != NotaFiscal.DESCARTADA:
+        raise EstoqueError(f"Descarte a {nota.documento} antes de excluí-la.")
+    db.session.delete(nota)

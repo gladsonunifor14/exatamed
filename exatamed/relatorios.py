@@ -71,7 +71,7 @@ def consumo_diario(inicio, fim, localizacao_id=None):
         d = por_dia[m.data.date()]
         d["mov"] += 1
         d["produtos"].add(m.produto_id)
-        d["saida" if m.tipo == Movimentacao.SAIDA else "disp"] += m.consumo_custo
+        d["saida" if m.tipo in (Movimentacao.SAIDA, Movimentacao.ESTORNO_SAIDA) else "disp"] += m.consumo_custo
     dias = Tabela("Consumo por dia", [
         Coluna("Data", "data"), Coluna("Movimentações", "numero"), Coluna("Itens distintos", "numero"),
         Coluna("Custo dispensações", "moeda"), Coluna("Custo saídas avulsas", "moeda"),
@@ -290,18 +290,20 @@ def inventario(localizacao_id=None, dias_alerta_validade=90):
     return [resumo, detalhe]
 
 
-def livro_controlados(inicio, fim, produto_id=None):
+def livro_controlados(inicio, fim, produto_id=None, lista=None):
     """Escrituração de medicamentos de controle especial (Portaria SVS/MS nº 344/1998).
 
     Por produto controlado: saldo no início do período, cada entrada e saída com lote,
     documento, paciente, prescritor e responsável, saldo corrente e saldo final.
-    Transferências entre locais da própria instituição não alteram o saldo total e
-    não são escrituradas.
+    Transferências entre locais da própria instituição (e os seus estornos) não alteram
+    o saldo total e não são escrituradas. ``lista`` filtra pela classificação (A1, B1...).
     """
     ini, fim_ = _periodo(inicio, fim)
     consulta = Produto.query.filter(Produto.controle_especial.isnot(None), Produto.controle_especial != "")
     if produto_id:
         consulta = consulta.filter(Produto.id == produto_id)
+    if lista:
+        consulta = consulta.filter(Produto.controle_especial == lista)
     tabelas = []
     escrituraveis = [t for t in Movimentacao.TIPOS if t != Movimentacao.TRANSFERENCIA]
     for produto in consulta.order_by(Produto.nome_comercial):
@@ -310,6 +312,7 @@ def livro_controlados(inicio, fim, produto_id=None):
         movimentos = Movimentacao.query.filter(
             Movimentacao.produto_id == produto.id, Movimentacao.data.between(ini, fim_),
             Movimentacao.tipo.in_(escrituraveis)).order_by(Movimentacao.data, Movimentacao.id).all()
+        movimentos = [m for m in movimentos if not m.estorno_de_transferencia]
         tabela = Tabela(
             f"{produto} — lista {produto.controle_especial} — {produto.principio_ativo or ''}".rstrip(" —"), [
                 Coluna("Data/hora"), Coluna("Operação"), Coluna("Lote"), Coluna("Documento"),
@@ -336,5 +339,8 @@ def livro_controlados(inicio, fim, produto_id=None):
         tabela.rodape = ["", "Totais do período", "", "", "", "", entradas, saidas, saldo, ""]
         tabelas.append(tabela)
     if not tabelas:
-        tabelas.append(Tabela("Nenhum produto de controle especial cadastrado", [Coluna("Produto")]))
+        titulo = (f"Nenhum produto de controle especial da lista {lista} cadastrado" if lista and not produto_id
+                  else "Nenhum produto de controle especial para o filtro escolhido" if lista or produto_id
+                  else "Nenhum produto de controle especial cadastrado")
+        tabelas.append(Tabela(titulo, [Coluna("Produto")]))
     return tabelas

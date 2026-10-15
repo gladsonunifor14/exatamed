@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [

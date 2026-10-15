@@ -3,11 +3,11 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import or_
 
-from . import validacao
+from . import controlados, validacao
 from .lgpd import registrar_acesso
 from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario, db
 from .numeros import ZERO, decimal
@@ -18,7 +18,7 @@ UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "
        "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 SEXOS = [("F", "Feminino"), ("M", "Masculino"), ("O", "Outro / não informado")]
 TIPOS_SANGUINEOS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
-# Listas da Portaria SVS/MS nº 344/1998.
+# Listas da Portaria SVS/MS nº 344/1998 e da RDC nº 471/2021.
 LISTAS_CONTROLE = [
     ("", "Não controlado"),
     ("A1", "A1 - Entorpecentes"), ("A2", "A2 - Entorpecentes (uso permitido em concentrações)"),
@@ -26,7 +26,9 @@ LISTAS_CONTROLE = [
     ("C1", "C1 - Outras substâncias sujeitas a controle especial"), ("C2", "C2 - Retinoides"),
     ("C3", "C3 - Imunossupressores"), ("C4", "C4 - Antirretrovirais"), ("C5", "C5 - Anabolizantes"),
     ("D1", "D1 - Precursores"), ("ATB", "Antimicrobiano (RDC 471/2021)"),
+    ("GLP1", "Agonista GLP-1 com retenção de receita (RDC 471/2021)"),
 ]
+ROTULOS_CONTROLE = dict(LISTAS_CONTROLE)
 UNIDADES = ["UN", "AMP", "FR", "CP", "CPR", "CAP", "ML", "L", "G", "MG", "BISN", "ENV", "CX", "PCT",
             "PAR", "ROLO", "KIT", "SACHE", "SER", "TB"]
 
@@ -41,6 +43,7 @@ class Campo:
     largura: int = 4  # colunas do grid (de 12)
     ajuda: str = ""
     secao: str = None  # inicia uma nova seção do formulário
+    atributos: dict = field(default_factory=dict)  # atributos HTML extras do campo
 
     def lista_opcoes(self):
         opcoes = self.opcoes() if callable(self.opcoes) else (self.opcoes or [])
@@ -140,6 +143,22 @@ def validar_produto(obj, erros):
             erros.append("Já existe um produto com este código de barras (GTIN).")
     if obj.registro_anvisa:
         obj.registro_anvisa = validacao.somente_digitos(obj.registro_anvisa) or obj.registro_anvisa
+    _classificar_controle(obj)
+
+
+def _classificar_controle(obj):
+    """Preenche o controle especial pela tabela de referência quando o campo ficou vazio."""
+    lista, substancia = controlados.classificar(obj.principio_ativo, obj.nome_comercial)
+    if not lista:
+        return
+    descricao = f"{ROTULOS_CONTROLE[lista]} ({controlados.referencia(lista)})"
+    if not obj.controle_especial:
+        obj.controle_especial = lista
+        obj.aviso_cadastro = (f"Controle especial classificado automaticamente: {substancia} — {descricao}. "
+                              "Confira a classificação.")
+    elif obj.controle_especial != lista:
+        obj.aviso_cadastro = (f"Atenção: a tabela de referência classifica {substancia} como {descricao}, "
+                              f"mas foi escolhida a lista {obj.controle_especial}. Confira a classificação.")
 
 
 def validar_localizacao(obj, erros):
@@ -233,11 +252,12 @@ CADASTROS = {
                   largura=3, secao="Identificação"),
             Campo("nome_comercial", "Nome comercial (marca)", obrigatorio=True, largura=5),
             Campo("principio_ativo", "Princípio ativo (DCB)", largura=4),
-            Campo("apresentacao", "Apresentação", largura=4, ajuda="Ex.: 500 mg comprimido, 1 g/2 mL ampola"),
-            Campo("laboratorio", "Laboratório fabricante", largura=4),
+            Campo("apresentacao", "Apresentação", largura=3, ajuda="Ex.: 500 mg comprimido, 1 g/2 mL ampola"),
+            Campo("laboratorio", "Laboratório fabricante", largura=3),
             Campo("unidade_medida", "Unidade de medida", "select", obrigatorio=True, opcoes=UNIDADES, largura=2),
-            Campo("controle_especial", "Controle especial", "select", opcoes=LISTAS_CONTROLE, largura=2,
-                  ajuda="Portaria 344/98"),
+            Campo("controle_especial", "Controle especial", "select", opcoes=LISTAS_CONTROLE, largura=4,
+                  ajuda="Preenchido pelo princípio ativo (Portaria 344/98 e RDC 471/2021).",
+                  atributos={"data-classificar": "principio_ativo,nome_comercial"}),
             Campo("gtin", "Código de barras (GTIN/EAN)", largura=3,
                   ajuda="Usado para reconhecer o produto na importação do XML da NF-e."),
             Campo("registro_anvisa", "Registro ANVISA", largura=3),
@@ -363,6 +383,8 @@ def editar(chave, id=None):
             return render_template("cadastros/form.html", cadastro=cadastro, obj=obj, valores=request.form), 422
         db.session.add(obj)
         db.session.commit()
+        if getattr(obj, "aviso_cadastro", None):
+            flash(obj.aviso_cadastro, "info")
         if cadastro.entidade_lgpd:
             registrar_acesso(RegistroAcesso.ALTERAR if id else RegistroAcesso.INCLUIR,
                              cadastro.entidade_lgpd, obj.id, obj.nome)
@@ -388,3 +410,14 @@ def excluir(chave, id):
         db.session.commit()
         flash(f"{cadastro.titulo_singular} excluído(a).", "success")
     return redirect(url_for(".listar", chave=chave))
+
+
+@bp.route("/produtos/controle-especial")
+def classificar_controle():
+    """Classificação de controle especial sugerida para o princípio ativo (preenchimento na tela)."""
+    lista, substancia = controlados.classificar(request.args.get("principio_ativo", ""),
+                                                request.args.get("nome_comercial", ""))
+    if not lista:
+        return jsonify(lista="")
+    return jsonify(lista=lista, substancia=substancia, rotulo=ROTULOS_CONTROLE[lista],
+                   referencia=controlados.referencia(lista))

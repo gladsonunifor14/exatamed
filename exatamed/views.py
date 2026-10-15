@@ -5,13 +5,14 @@ import io
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
 from . import entrada_nfe, estoque, relatorios
 from .ajuda import primeiros_passos
-from .auth import perfil_requerido
+from .auth import CredencialInvalida, autorizar, perfil_requerido
+from .cadastros import CADASTROS, LISTAS_CONTROLE, UNIDADES, preencher
 from .estoque import EstoqueError
 from .lgpd import registrar_acesso
 from .models import (
@@ -209,7 +210,8 @@ def conferir_nfe(id):
                                      "ultimo_custo": entrada_nfe.ultimo_custo(produto.id) if produto else None}
     formulario = request.form if request.method == "POST" else None
     return render_template("estoque/nfe_conferencia.html", nota=nota, dados=dados, sugestoes=sugestoes,
-                           origens=entrada_nfe.ORIGENS_SUGESTAO, form=formulario, **_contexto_formularios())
+                           origens=entrada_nfe.ORIGENS_SUGESTAO, form=formulario, listas_controle=LISTAS_CONTROLE,
+                           unidades=UNIDADES, tipos=Produto.TIPOS, **_contexto_formularios())
 
 
 @bp_estoque.route("/nfe/<int:id>/descartar", methods=["POST"])
@@ -222,6 +224,45 @@ def descartar_nfe(id):
     except EstoqueError as erro:
         flash(str(erro), "danger")
     return redirect(url_for(".notas_fiscais"))
+
+
+@bp_estoque.route("/nfe/<int:id>/excluir", methods=["POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def excluir_nfe(id):
+    nota = db.get_or_404(NotaFiscal, id)
+    documento = nota.documento
+    try:
+        entrada_nfe.excluir(nota)
+        db.session.commit()
+        flash(f"{documento} excluída.", "success")
+    except EstoqueError as erro:
+        db.session.rollback()
+        flash(str(erro), "danger")
+    return redirect(url_for(".notas_fiscais"))
+
+
+@bp_estoque.route("/nfe/<int:id>/produto", methods=["POST"])
+@perfil_requerido(Usuario.FARMACEUTICO)
+def cadastrar_produto_nfe(id):
+    """Cadastra, sem sair da conferência, o produto de um item da nota que não está no sistema."""
+    nota = db.get_or_404(NotaFiscal, id)
+    if nota.situacao != NotaFiscal.PENDENTE:
+        return jsonify(erros=["Esta nota não está mais em conferência."]), 409
+    cadastro = CADASTROS["produtos"]
+    dados = request.form.to_dict()
+    dados["ativo"] = "on"
+    produto = Produto()
+    with db.session.no_autoflush:
+        erros = preencher(cadastro, produto, dados)
+    if erros:
+        db.session.rollback()
+        return jsonify(erros=erros), 422
+    db.session.add(produto)
+    db.session.commit()
+    texto = str(produto) + (f" [{produto.principio_ativo}]" if produto.principio_ativo else "")
+    return jsonify(id=produto.id, texto=texto,
+                   unidade=produto.unidade_medida, controle=produto.controle_especial or "",
+                   aviso=getattr(produto, "aviso_cadastro", None)), 201
 
 
 @bp_estoque.route("/notas")
@@ -436,8 +477,45 @@ def movimentacoes():
         consulta = consulta.filter(Movimentacao.tipo == tipo)
     pagina = consulta.order_by(Movimentacao.data.desc(), Movimentacao.id.desc()).paginate(
         page=request.args.get("pagina", 1, type=int), per_page=50, error_out=False)
+    ids = [m.id for m in pagina.items]
+    estornadas = {origem for (origem,) in db.session.query(Movimentacao.origem_id).filter(
+        Movimentacao.origem_id.in_(ids), Movimentacao.tipo.in_(Movimentacao.ESTORNOS))} if ids else set()
     return render_template("estoque/movimentacoes.html", pagina=pagina, filtro=request.args,
-                           tipos=Movimentacao.TIPOS, **_contexto_formularios())
+                           tipos=Movimentacao.TIPOS, estornadas=estornadas, estornaveis=Movimentacao.ESTORNAVEIS,
+                           **_contexto_formularios())
+
+
+@bp_estoque.route("/movimentacoes/<int:id>/estornar", methods=["GET", "POST"])
+def estornar_movimentacao(id):
+    """Desfaz uma movimentação, com a senha de um farmacêutico ou administrador."""
+    mov = db.get_or_404(Movimentacao, id)
+    impedimento = estoque.verificar_estorno(mov)
+    partes = [mov]
+    if not impedimento and mov.tipo == Movimentacao.TRANSFERENCIA:
+        try:
+            partes = sorted([mov, estoque.contraparte_transferencia(mov)], key=lambda m: m.quantidade)
+        except EstoqueError as erro:
+            impedimento = str(erro).rstrip(".").lower()
+    if request.method == "POST" and not impedimento:
+        try:
+            autorizador = autorizar(request.form.get("autorizador", ""), request.form.get("senha", ""))
+        except CredencialInvalida as erro:
+            flash(f"Estorno não autorizado: {erro}", "danger")
+            return render_template("estoque/estorno.html", mov=mov, partes=partes, impedimento=None,
+                                   form=request.form), erro.status if erro.status != 200 else 422
+        try:
+            lancamentos = estoque.estornar(mov, request.form.get("motivo"), autorizador)
+            db.session.commit()
+            flash(f"Movimentação estornada: {len(lancamentos)} lançamento(s) inverso(s) registrado(s), "
+                  f"autorizado(s) por {autorizador.login}.", "success")
+            return redirect(url_for(".movimentacoes", produto_id=mov.produto_id))
+        except EstoqueError as erro:
+            db.session.rollback()
+            flash(str(erro), "danger")
+            mov = db.session.get(Movimentacao, id)
+            partes = [db.session.get(Movimentacao, p.id) for p in partes]
+    return render_template("estoque/estorno.html", mov=mov, partes=partes, impedimento=impedimento,
+                           form=request.form if request.method == "POST" else None)
 
 
 @bp_estoque.route("/inventario", methods=["GET", "POST"])
@@ -513,7 +591,8 @@ def _gerar(chave):
         return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int),
                                                anonimo=_anonimo())
     if chave == "livro_controlados":
-        return relatorios.livro_controlados(inicio, fim, request.args.get("produto_id", type=int))
+        return relatorios.livro_controlados(inicio, fim, request.args.get("produto_id", type=int),
+                                            request.args.get("lista") or None)
     if chave == "pedido_compra":
         dias = max(request.args.get("dias", 30, type=int), 1)
         return relatorios.pedido_compra(dias)
@@ -567,7 +646,7 @@ def exibir(chave):
     if filtros == "periodo_paciente":
         contexto["pacientes"] = Paciente.query.filter(Paciente.anonimizado_em.is_(None)).order_by(Paciente.nome).all()
     return render_template("relatorios/relatorio.html", chave=chave, titulo=titulo, filtros=filtros,
-                           tabelas=tabelas, args=request.args,
+                           tabelas=tabelas, args=request.args, listas_controle=LISTAS_CONTROLE[1:],
                            inicio_padrao=hoje.replace(day=1), fim_padrao=hoje, **contexto)
 
 

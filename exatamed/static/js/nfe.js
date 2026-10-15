@@ -24,6 +24,7 @@
     }
     card.querySelectorAll('.lote-nfe').forEach(function (linha) {
       const destino = linha.querySelector('.quantidade-estoque');
+      if (!destino) return;  // nota já importada: só leitura
       const quantidade = numero(linha.dataset.quantidade);
       destino.textContent = fator && fator > 0 && quantidade !== null
         ? formatar.format(quantidade * fator) + (unidade ? ' ' + unidade : '') : '—';

@@ -19,7 +19,7 @@
       {% if c.tipo == 'textarea' %}
         <textarea class="form-control" id="{{ c.nome }}" name="{{ c.nome }}" rows="2">{{ v }}</textarea>
       {% elif c.tipo == 'select' %}
-        <select class="form-select" id="{{ c.nome }}" name="{{ c.nome }}" {{ 'required' if c.obrigatorio }}>
+        <select class="form-select" id="{{ c.nome }}" name="{{ c.nome }}" {{ 'required' if c.obrigatorio }}{{ c.atributos|xmlattr }}>
           {% for valor, rotulo in c.lista_opcoes() %}<option value="{{ valor }}" {% if valor|string == v|string %}selected{% endif %}>{{ rotulo or '—' }}</option>{% endfor %}
         </select>
       {% else %}
@@ -49,5 +49,8 @@
 {% block scripts %}
 {% if cadastro.campos|selectattr('nome', 'equalto', 'cep')|list %}
 <script src="{{ url_for('static', filename='js/cep.js') }}"></script>
+{% endif %}
+{% if cadastro.chave == 'produtos' %}
+<script src="{{ url_for('static', filename='js/controle_especial.js') }}" data-url="{{ url_for('cadastros.classificar_controle') }}"></script>
 {% endif %}
 {% endblock %}

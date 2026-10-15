@@ -200,3 +200,91 @@ def test_gtin_validado_no_cadastro(client, base):
     assert "GTIN) inválido" in resposta.get_data(as_text=True)
     resposta = client.post("/cadastros/produtos/novo", data=dict(dados, gtin="7891234567895"))
     assert "Já existe um produto com este código" in resposta.get_data(as_text=True)
+
+
+# ------------------------------------------------------------------- exclusão de notas
+
+def test_exclui_nota_descartada(client, base):
+    _enviar(client, gerar_xml())
+    nota = NotaFiscal.query.one()
+    client.post(f"/estoque/nfe/{nota.id}/descartar")
+    assert "Excluir" in client.get("/estoque/notas").get_data(as_text=True)
+    resposta = client.post(f"/estoque/nfe/{nota.id}/excluir", follow_redirects=True)
+    assert "NF-e 1234/1 excluída" in resposta.get_data(as_text=True)
+    assert NotaFiscal.query.count() == 0
+    assert auditoria.verificar_integridade()["ok"]
+
+
+def test_nota_importada_nao_pode_ser_excluida(client, base):
+    _enviar(client, gerar_xml())
+    nota = NotaFiscal.query.one()
+    client.post(f"/estoque/nfe/{nota.id}", data=_confirmacao(base))
+    pagina = client.get("/estoque/notas").get_data(as_text=True)
+    assert "exclusão bloqueada" in pagina and "bi-trash" not in pagina
+    resposta = client.post(f"/estoque/nfe/{nota.id}/excluir", follow_redirects=True)
+    assert "foi importada e não pode ser excluída" in resposta.get_data(as_text=True)
+    assert db.session.get(NotaFiscal, nota.id).situacao == "IMPORTADA" and Lote.query.count() == 3
+
+
+def test_nota_pendente_precisa_ser_descartada_antes(client, base):
+    _enviar(client, gerar_xml())
+    nota = NotaFiscal.query.one()
+    resposta = client.post(f"/estoque/nfe/{nota.id}/excluir", follow_redirects=True)
+    assert "Descarte a NF-e 1234/1 antes de excluí-la" in resposta.get_data(as_text=True)
+    assert NotaFiscal.query.count() == 1
+
+
+def test_auxiliar_nao_exclui_nota(auxiliar, base):
+    _enviar(auxiliar, gerar_xml())
+    nota = NotaFiscal.query.one()
+    auxiliar.post(f"/estoque/nfe/{nota.id}/descartar")
+    assert "bi-trash" not in auxiliar.get("/estoque/notas").get_data(as_text=True)
+    assert auxiliar.post(f"/estoque/nfe/{nota.id}/excluir").status_code == 403
+    assert NotaFiscal.query.count() == 1
+
+
+# ------------------------------------------------------------------- cadastro de produto na conferência
+
+PRODUTO_NOVO = {"tipo": "MEDICAMENTO", "nome_comercial": "Tramal", "principio_ativo": "Cloridrato de tramadol",
+                "apresentacao": "50 mg/mL ampola 2 mL", "unidade_medida": "AMP", "controle_especial": "",
+                "gtin": "7891234567802", "registro_anvisa": "1.0000.0000.000-1"}
+
+
+def test_cadastra_produto_na_conferencia(farmaceutico, base):
+    _enviar(farmaceutico, gerar_xml())
+    nota = NotaFiscal.query.one()
+    pagina = farmaceutico.get(f"/estoque/nfe/{nota.id}").get_data(as_text=True)
+    assert 'id="modal-produto"' in pagina and "Cadastrar produto" in pagina and "nfe_produto.js" in pagina
+    resposta = farmaceutico.post(f"/estoque/nfe/{nota.id}/produto", data=PRODUTO_NOVO)
+    assert resposta.status_code == 201
+    dados = resposta.get_json()
+    produto = db.session.get(Produto, dados["id"])
+    assert produto.ativo and produto.controle_especial == "A2" and produto.registro_anvisa == "1000000000001"
+    assert dados["controle"] == "A2" and dados["unidade"] == "AMP" and "tramadol" in dados["aviso"]
+    assert dados["texto"] == "Tramal - 50 mg/mL ampola 2 mL [Cloridrato de tramadol]"
+    # O produto novo pode ser usado na confirmação da mesma nota.
+    farmaceutico.post(f"/estoque/nfe/{nota.id}", data=_confirmacao(base, item_1_produto=produto.id))
+    assert Lote.query.filter_by(produto_id=produto.id).count() == 2
+
+
+def test_cadastro_na_conferencia_valida_os_dados(farmaceutico, base):
+    _enviar(farmaceutico, gerar_xml())
+    nota = NotaFiscal.query.one()
+    resposta = farmaceutico.post(f"/estoque/nfe/{nota.id}/produto", data=dict(PRODUTO_NOVO, nome_comercial="",
+                                                                               gtin="7891234567895"))
+    assert resposta.status_code == 422
+    assert "O campo 'Nome comercial (marca)' é obrigatório." in resposta.get_json()["erros"]
+    resposta = farmaceutico.post(f"/estoque/nfe/{nota.id}/produto", data=dict(PRODUTO_NOVO, gtin="7891234567895"))
+    assert "Já existe um produto com este código de barras (GTIN)." in resposta.get_json()["erros"]
+    assert Produto.query.count() == 2
+
+
+def test_cadastro_na_conferencia_exige_farmaceutico_e_nota_pendente(auxiliar, farmaceutico, base):
+    _enviar(auxiliar, gerar_xml())
+    nota = NotaFiscal.query.one()
+    pagina = auxiliar.get(f"/estoque/nfe/{nota.id}").get_data(as_text=True)
+    assert 'id="modal-produto"' not in pagina and "peça a um farmacêutico" in pagina
+    assert auxiliar.post(f"/estoque/nfe/{nota.id}/produto", data=PRODUTO_NOVO).status_code == 403
+    farmaceutico.post(f"/estoque/nfe/{nota.id}/descartar")
+    assert farmaceutico.post(f"/estoque/nfe/{nota.id}/produto", data=PRODUTO_NOVO).status_code == 409
+    assert Produto.query.count() == 2
