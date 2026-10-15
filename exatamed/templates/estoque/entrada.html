@@ -2,6 +2,22 @@
 {% block titulo %}Entrada de estoque{% endblock %}
 {% block conteudo %}
 <h1 class="h3 mb-3"><i class="bi bi-box-arrow-in-down"></i> Entrada de estoque</h1>
+<div class="card mb-4 border-start border-4 border-success">
+  <div class="card-body">
+    <h2 class="h5"><i class="bi bi-filetype-xml"></i> Importar XML da NF-e</h2>
+    <p class="text-muted small mb-3">Envie o arquivo XML da nota fiscal eletrônica recebido do fornecedor. O sistema lê os itens, lotes, validades
+      e custos e mostra uma tela de conferência antes de dar entrada no estoque.</p>
+    <form method="post" action="{{ url_for('estoque.receber_nfe') }}" enctype="multipart/form-data" class="row g-2 align-items-center">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-md-8"><input class="form-control" type="file" name="xml" accept=".xml,text/xml,application/xml" required aria-label="Arquivo XML da NF-e"></div>
+      <div class="col-md-4 d-flex gap-2">
+        <button class="btn btn-exata flex-grow-1"><i class="bi bi-upload"></i> Ler XML</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('estoque.notas_fiscais') }}" title="Notas importadas">Notas</a>
+      </div>
+    </form>
+  </div>
+</div>
+<h2 class="h5">Entrada manual</h2>
 <p class="text-muted">Cada entrada cria uma camada de custo (lote) que será consumida na ordem PEPS — primeiro que entra, primeiro que sai.</p>
 <form method="post" class="card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
   <div class="col-md-6"><label class="form-label obrigatorio">Medicamento / material</label>{{ select_produto(produtos, selecionado=request.form.produto_id) }}</div>

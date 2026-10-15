@@ -37,8 +37,10 @@ from .models import (
     Lote,
     Medico,
     Movimentacao,
+    NotaFiscal,
     Paciente,
     Produto,
+    ProdutoFornecedor,
     RegistroAcesso,
     RegistroAuditoria,
     Usuario,
@@ -71,10 +73,12 @@ AUDITADOS = {
     Paciente: ("paciente", TODOS),
     Medico: ("medico", TODOS),
     Usuario: ("usuario", {"nome", "login", "email", "registro_profissional"}),
+    NotaFiscal: ("nota_fiscal", set()),
+    ProdutoFornecedor: ("produto_fornecedor", set()),
 }
 ENTIDADES = {nome: modelo.__name__ for modelo, (nome, _) in AUDITADOS.items()}
 IGNORADOS = {"criado_em", "atualizado_em", "ultimo_acesso", "tentativas_falhas", "ocultar_primeiros_passos",
-             "seq_cadeia", "hash", "id"}
+             "seq_cadeia", "hash", "id", "xml"}
 DADO_PESSOAL = "(dado pessoal)"
 
 

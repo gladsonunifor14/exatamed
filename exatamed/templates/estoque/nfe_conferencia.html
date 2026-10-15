@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block titulo %}{{ nota.documento }}{% endblock %}
+{% block conteudo %}
+{% set editavel = nota.situacao == 'PENDENTE' %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0"><i class="bi bi-receipt"></i> {{ nota.documento }}
+    <span class="badge {{ {'IMPORTADA': 'bg-success', 'PENDENTE': 'bg-warning text-dark', 'DESCARTADA': 'bg-secondary'}[nota.situacao] }} fs-6 align-middle">{{ nota.situacao_descricao }}</span></h1>
+  <a class="btn btn-outline-secondary" href="{{ url_for('estoque.notas_fiscais') }}"><i class="bi bi-arrow-left"></i> Notas fiscais</a>
+</div>
+
+<div class="card mb-3"><div class="card-body row g-2 small">
+  <div class="col-md-5"><strong>Fornecedor:</strong> {{ dados.emitente_nome }} · CNPJ {{ dados.emitente_cnpj }}</div>
+  <div class="col-md-4"><strong>Destinatário:</strong> {{ dados.destinatario_nome }}{% if dados.destinatario_cnpj %} · {{ dados.destinatario_cnpj }}{% endif %}</div>
+  <div class="col-md-3"><strong>Emissão:</strong> {{ dados.emissao|data('%d/%m/%Y %H:%M') }}</div>
+  <div class="col-md-5"><strong>Chave:</strong> <span class="font-monospace">{{ dados.chave }}</span></div>
+  <div class="col-md-4"><strong>Autorização SEFAZ:</strong> {{ dados.protocolo }} ({{ dados.motivo_sefaz or dados.situacao_sefaz }})</div>
+  <div class="col-md-3"><strong>Valor total:</strong> {{ dados.valor_total|moeda }}</div>
+</div></div>
+
+{% if editavel %}
+<div class="alert alert-light border small">
+  <strong>Confira antes de confirmar:</strong> o destinatário é a sua instituição; cada item está ligado ao produto certo; o
+  <strong>fator</strong> converte a unidade da nota na unidade do estoque (ex.: nota em <em>CX</em> com 10 ampolas, produto controlado em
+  <em>AMP</em> → fator 10); lotes e validades conferem com as embalagens. O custo de cada unidade inclui frete, seguro, IPI e ICMS-ST e
+  desconta o desconto do item. O sistema memoriza o produto e o fator de cada código do fornecedor para as próximas notas.
+</div>
+<form method="post" id="form-nfe"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="card mb-3"><div class="card-body row g-2 align-items-end">
+  <div class="col-md-5"><label class="form-label obrigatorio" for="localizacao_id">Local de entrada</label>
+    <select class="form-select" name="localizacao_id" id="localizacao_id" required><option value="">Selecione...</option>
+      {% for l in locais %}<option value="{{ l.id }}" {{ 'selected' if form and form.localizacao_id == l.id|string }}>{{ l.nome }}</option>{% endfor %}
+    </select></div>
+</div></div>
+{% endif %}
+
+{% for item in dados['itens'] %}
+{% set n = item.numero %}{% set s = sugestoes[n] %}
+{% set produto_sel = (form.get('item_%d_produto'|format(n)) if form else (s.produto.id|string if s.produto else '')) %}
+{% set fator = (form.get('item_%d_fator'|format(n)) if form else s.fator|numero_campo) %}
+<div class="card mb-3 item-nfe" data-custo="{{ item.custo_unitario|numero_campo }}">
+  <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+    {% if editavel %}<input class="form-check-input mt-0" type="checkbox" name="item_{{ n }}_importar" value="1" id="importar_{{ n }}"
+      {{ 'checked' if (not form or form.get('item_%d_importar'|format(n))) }} aria-label="Importar item {{ n }}">{% endif %}
+    <label class="fw-semibold mb-0" for="importar_{{ n }}">Item {{ n }} · {{ item.descricao }}</label>
+    <span class="small text-muted ms-auto">Cód. {{ item.codigo }}{% if item.gtin %} · GTIN {{ item.gtin }}{% endif %}{% if item.registro_anvisa %} · ANVISA {{ item.registro_anvisa }}{% endif %}</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-2 small mb-2">
+      <div class="col-md-3"><strong>Na nota:</strong> {{ item.quantidade|numero }} {{ item.unidade }}</div>
+      <div class="col-md-3"><strong>Custo na nota:</strong> {{ item.custo_unitario|moeda }} / {{ item.unidade }}</div>
+      <div class="col-md-3"><strong>Total do item:</strong> {{ item.valor_total|moeda }}</div>
+      {% if editavel and s.ultimo_custo is not none %}<div class="col-md-3"><strong>Último custo do produto:</strong> {{ s.ultimo_custo|moeda }}</div>{% endif %}
+    </div>
+    {% if editavel %}
+    <div class="row g-2 mb-2">
+      <div class="col-md-7"><label class="form-label small mb-0" for="produto_{{ n }}">Produto no ExataMed</label>
+        <select class="form-select form-select-sm produto-nfe" name="item_{{ n }}_produto" id="produto_{{ n }}">
+          <option value="">Selecione...</option>
+          {% for p in produtos %}<option value="{{ p.id }}" data-unidade="{{ p.unidade_medida }}" {{ 'selected' if produto_sel == p.id|string }}>{{ p }}{% if p.principio_ativo %} [{{ p.principio_ativo }}]{% endif %}</option>{% endfor %}
+        </select>
+        <div class="form-text">{% if s.origem %}<i class="bi bi-magic text-success"></i> Sugerido pelo {{ origens[s.origem] }}.{% else %}<i class="bi bi-question-circle"></i> Produto não reconhecido: selecione-o na lista (cadastre-o antes, se for novo).{% endif %}</div></div>
+      <div class="col-md-2"><label class="form-label small mb-0" for="fator_{{ n }}">Fator ({{ item.unidade }} → unid. do estoque)</label>
+        <input class="form-control form-control-sm fator-nfe" name="item_{{ n }}_fator" id="fator_{{ n }}" inputmode="decimal" value="{{ fator }}"></div>
+      <div class="col-md-3 small pt-md-4 custo-estoque text-muted"></div>
+    </div>
+    {% endif %}
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light"><tr><th>Lote</th><th>Validade</th><th class="text-end">Qtd. na nota</th>{% if editavel %}<th class="text-end">Entra no estoque</th>{% endif %}</tr></thead>
+      <tbody>
+      {% for lote in item.lotes %}{% set k = loop.index0 %}
+        <tr class="lote-nfe" data-quantidade="{{ lote.quantidade|numero_campo }}">
+          {% if editavel %}
+          <td><input class="form-control form-control-sm" name="item_{{ n }}_lote_{{ k }}" maxlength="50" aria-label="Lote"
+                value="{{ form.get('item_%d_lote_%d'|format(n, k)) if form else lote.lote }}" placeholder="{{ 'Informe o lote' if not lote.lote }}"></td>
+          <td><input class="form-control form-control-sm" type="date" name="item_{{ n }}_validade_{{ k }}" aria-label="Validade"
+                value="{{ form.get('item_%d_validade_%d'|format(n, k)) if form else (lote.validade.isoformat() if lote.validade else '') }}"></td>
+          {% else %}
+          <td>{{ lote.lote or '—' }}</td><td>{{ lote.validade|data }}</td>
+          {% endif %}
+          <td class="text-end">{{ lote.quantidade|numero }} {{ item.unidade }}</td>
+          {% if editavel %}<td class="text-end quantidade-estoque fw-semibold"></td>{% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+{% if editavel %}
+<div class="d-flex flex-wrap gap-2 justify-content-end mb-4">
+  <button class="btn btn-outline-danger" form="form-descartar" data-confirmar="Descartar esta nota? Ela poderá ser enviada de novo depois.">Descartar nota</button>
+  <button class="btn btn-exata"><i class="bi bi-check2-all"></i> Confirmar entrada no estoque</button>
+</div>
+</form>
+<form method="post" id="form-descartar" action="{{ url_for('estoque.descartar_nfe', id=nota.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% elif nota.situacao == 'IMPORTADA' %}
+<div class="card"><div class="card-header fw-semibold"><i class="bi bi-box-arrow-in-down"></i> Lotes que deram entrada
+  · {{ nota.localizacao }} · {{ nota.importada_em|data('%d/%m/%Y %H:%M') }}{% if nota.usuario %} · {{ nota.usuario.login }}{% endif %}</div>
+<div class="table-responsive"><table class="table table-sm mb-0">
+  <thead class="table-light"><tr><th>Produto</th><th>Lote</th><th>Validade</th><th class="text-end">Quantidade</th><th class="text-end">Custo unitário</th><th class="text-end">Saldo atual</th></tr></thead>
+  <tbody>{% for l in nota.lotes %}
+    <tr><td>{{ l.produto }}</td><td>{{ l.numero_lote }}</td><td>{{ l.validade|data }}</td>
+      <td class="text-end">{{ l.quantidade_inicial|numero }} {{ l.produto.unidade_medida }}</td><td class="text-end">{{ l.custo_unitario|moeda }}</td>
+      <td class="text-end">{{ l.saldo|numero }}</td></tr>
+  {% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/nfe.js') }}"></script>{% endblock %}

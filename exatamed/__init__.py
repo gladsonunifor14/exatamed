@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [
@@ -56,6 +56,9 @@ COLUNAS_NOVAS = [
     ("lotes", "motivo_bloqueio", "VARCHAR(200)"),
     ("lotes", "bloqueado_em", "TIMESTAMP"),
     ("usuarios", "versao_sessao", "INTEGER NOT NULL DEFAULT 1"),
+    ("produtos", "gtin", "VARCHAR(14)"),
+    ("produtos", "registro_anvisa", "VARCHAR(20)"),
+    ("lotes", "nota_fiscal_id", "INTEGER REFERENCES notas_fiscais(id)"),
 ]
 
 
@@ -172,6 +175,8 @@ def create_app(config=None):
         SESSION_COOKIE_NAME="__Host-exatamed" if producao else "exatamed",
         REMEMBER_COOKIE_SECURE=producao,
         WTF_CSRF_TIME_LIMIT=None,
+        # Limite de upload (XML de NF-e tem poucos KB; recusa arquivos grandes demais).
+        MAX_CONTENT_LENGTH=6 * 1024 * 1024,
         # Chave da cadeia de auditoria. Use uma chave própria e NUNCA a troque: as
         # assinaturas já gravadas deixariam de conferir.
         LOG_FORMATO=os.environ.get("EXATAMED_LOG_FORMATO"),  # "json" ou "texto"
@@ -247,6 +252,11 @@ def create_app(config=None):
     def nao_encontrado(_erro):
         return render_template("erro.html", titulo="Página não encontrada",
                                mensagem="O endereço acessado não existe."), 404
+
+    @app.errorhandler(413)
+    def arquivo_grande(_erro):
+        return render_template("erro.html", titulo="Arquivo muito grande",
+                               mensagem="O arquivo enviado passa do limite de 5 MB. Confira se é o XML da NF-e."), 413
 
     @app.errorhandler(500)
     def erro_interno(_erro):

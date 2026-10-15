@@ -128,6 +128,48 @@ Ao receber produtos (nota fiscal, empenho, doação):
 
 Cada lote recebido vira uma camada de custo. Não é possível dar entrada em lote vencido.
 
+Quando a compra vem com NF-e, prefira importar o XML da nota (próxima seção): os lotes, as
+validades e os custos são lidos do arquivo, sem digitação.
+
+## Importação do XML da NF-e
+
+Em **Estoque → Entrada**, no quadro **Importar XML da NF-e**, escolha o arquivo `.xml` que o
+fornecedor enviou e clique em **Ler XML**. O sistema confere o arquivo e abre a tela de
+conferência. Nada entra no estoque antes da sua confirmação.
+
+**Notas aceitas:** NF-e modelo 55 (leiautes 4.00 e 3.10) com o protocolo de autorização da
+SEFAZ, ou seja, o arquivo completo que o fornecedor envia (*nfeProc*). São recusados: nota
+cancelada ou denegada, arquivo sem protocolo, chave de acesso inválida, arquivo com mais de 5 MB
+e nota que já foi importada (o aviso mostra quando e por quem).
+
+Na conferência, para cada item da nota:
+
+1. **Produto no ExataMed.** O sistema sugere o produto pelo código do fornecedor (se a nota de
+   um mesmo fornecedor já foi importada antes), pelo código de barras (GTIN) ou pelo registro
+   ANVISA cadastrados no produto. Sem sugestão, escolha o produto na lista; se ele for novo,
+   cadastre-o antes. Para acertar as próximas notas sozinho, preencha o **código de barras** e o
+   **registro ANVISA** no cadastro do produto.
+2. **Fator.** Converte a unidade da nota na unidade do estoque. Exemplo: a nota vende em *CX*
+   com 10 ampolas e o produto é controlado em *AMP*, então o fator é 10. A tela mostra, na hora,
+   quanto entra no estoque e o custo de cada unidade.
+3. **Lote e validade.** Vêm do XML quando o fornecedor os informa (grupo de rastreabilidade);
+   confira com as embalagens. Para materiais sem lote na nota, informe-os aqui.
+4. Desmarque a caixa do item que não deve entrar (por exemplo, recebido com avaria).
+
+![Conferência da NF-e importada](img/importacao_nfe.png)
+
+Escolha o **local de entrada** e clique em **Confirmar entrada no estoque**. Todos os itens
+entram de uma vez: se um deles tiver erro (lote vencido, produto não escolhido), nada é
+registrado e a tela aponta o item a corrigir.
+
+**Custo:** o custo de cada unidade é o valor do item mais frete, seguro, outras despesas, IPI e
+ICMS-ST, menos o desconto, dividido pela quantidade (e pelo fator).
+
+**Depois da importação:** os lotes ficam ligados à nota, o documento das movimentações é
+*NF-e número/série* e o sistema memoriza o produto e o fator de cada código do fornecedor. O XML
+original fica guardado. Em **Estoque → Notas fiscais (NF-e)** estão todas as notas, com a
+situação de cada uma. Uma nota ainda em conferência pode ser **descartada** e enviada de novo depois.
+
 ### 6. Primeira dispensação
 
 Faça uma dispensação de teste seguindo [Dispensação no dia a dia](#dispensação-no-dia-a-dia).

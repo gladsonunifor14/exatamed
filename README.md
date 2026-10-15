@@ -51,6 +51,9 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - Cadastro de **pacientes**, **médicos**, **medicamentos/materiais** e **localizações**, com
   **endereço preenchido automaticamente pelo CEP** (ViaCEP).
 - Estoque por **lote, validade e localização**, com custo unitário por camada.
+- **Importação do XML da NF-e** na entrada de estoque: lotes, validades e custo de aquisição
+  (com frete, IPI e ICMS-ST) lidos da nota, conferência antes de confirmar, sugestão do produto
+  por código do fornecedor, GTIN ou registro ANVISA e bloqueio de nota duplicada ou não autorizada.
 - **Entradas** (nota fiscal/empenho), **saídas avulsas** (consumo de setor, perdas, avarias),
   **transferências entre locais** e **dispensação ao paciente**.
 - Baixa automática pelo método **PEPS**, sem consumir lotes vencidos ou bloqueados, com

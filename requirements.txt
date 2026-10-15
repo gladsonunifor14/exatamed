@@ -4,6 +4,8 @@ Flask-Login>=0.6,<1
 Flask-WTF>=1.2,<2
 # Converte o guia do usuário (Markdown) para a página Ajuda.
 Markdown>=3.5,<4
+# Leitura segura do XML da NF-e (recusa DTD e entidades externas).
+defusedxml>=0.7,<1
 # Produção: servidor WSGI e driver do PostgreSQL.
 gunicorn>=22
 psycopg[binary]>=3.1,<4

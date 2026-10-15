@@ -9,12 +9,26 @@ from flask import Blueprint, Response, abort, flash, redirect, render_template, 
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
-from . import estoque, relatorios
+from . import entrada_nfe, estoque, relatorios
 from .ajuda import primeiros_passos
 from .auth import perfil_requerido
 from .estoque import EstoqueError
 from .lgpd import registrar_acesso
-from .models import Dispensacao, Localizacao, Lote, Medico, Movimentacao, Paciente, Produto, RegistroAcesso, Usuario, db
+from .models import (
+    Dispensacao,
+    Localizacao,
+    Lote,
+    Medico,
+    Movimentacao,
+    NotaFiscal,
+    Paciente,
+    Produto,
+    RegistroAcesso,
+    Usuario,
+    db,
+)
+from .nfe import TAMANHO_MAXIMO as TAMANHO_MAXIMO_NFE
+from .nfe import NFeError
 from .numeros import ZERO, decimal, formatar
 
 principal = Blueprint("principal", __name__)
@@ -133,6 +147,88 @@ def entrada():
         )
     return _executar(operacao, lambda l: f"Entrada registrada: lote {l.numero_lote} de {l.produto}.",
                      "estoque/entrada.html")
+
+
+# --------------------------------------------------------------------------- entrada por XML da NF-e
+
+@bp_estoque.route("/entrada/nfe", methods=["POST"])
+def receber_nfe():
+    arquivo = request.files.get("xml")
+    if not arquivo or not arquivo.filename:
+        flash("Selecione o arquivo XML da NF-e.", "danger")
+        return redirect(url_for(".entrada"))
+    try:
+        nota = entrada_nfe.receber_xml(arquivo.read(TAMANHO_MAXIMO_NFE + 1))
+        db.session.commit()
+    except NFeError as erro:
+        db.session.rollback()
+        flash(str(erro), "danger")
+        return redirect(url_for(".entrada"))
+    return redirect(url_for(".conferir_nfe", id=nota.id))
+
+
+def _escolhas_do_formulario(dados):
+    escolhas = {}
+    for item in dados["itens"]:
+        n = item["numero"]
+        produto_id = request.form.get(f"item_{n}_produto", type=int)
+        lotes = []
+        for k in range(len(item["lotes"])):
+            texto_validade = request.form.get(f"item_{n}_validade_{k}") or ""
+            try:
+                validade = datetime.strptime(texto_validade, "%Y-%m-%d").date() if texto_validade else None
+            except ValueError:
+                raise EstoqueError(f"Item {n}: validade inválida.") from None
+            lotes.append({"lote": request.form.get(f"item_{n}_lote_{k}", ""), "validade": validade})
+        escolhas[n] = {"importar": bool(request.form.get(f"item_{n}_importar")),
+                       "produto": db.session.get(Produto, produto_id) if produto_id else None,
+                       "fator": request.form.get(f"item_{n}_fator") or "1", "lotes": lotes}
+    return escolhas
+
+
+@bp_estoque.route("/nfe/<int:id>", methods=["GET", "POST"])
+def conferir_nfe(id):
+    nota = db.get_or_404(NotaFiscal, id)
+    dados = entrada_nfe.dados_da_nota(nota)
+    if request.method == "POST" and nota.situacao == NotaFiscal.PENDENTE:
+        try:
+            entradas = entrada_nfe.confirmar(nota, _obter(Localizacao, "localizacao_id", obrigatorio=False),
+                                             _escolhas_do_formulario(dados))
+            nota.usuario_id = current_user.id
+            db.session.commit()
+            flash(f"{nota.documento} importada: {entradas} lote(s) deram entrada no estoque.", "success")
+            return redirect(url_for(".conferir_nfe", id=nota.id))
+        except EstoqueError as erro:
+            db.session.rollback()
+            nota = db.session.get(NotaFiscal, id)
+            flash(str(erro), "danger")
+    sugestoes = {}
+    for item in dados["itens"]:
+        produto, fator, origem = entrada_nfe.sugerir_produto(nota.emitente_cnpj, item)
+        sugestoes[item["numero"]] = {"produto": produto, "fator": fator, "origem": origem,
+                                     "ultimo_custo": entrada_nfe.ultimo_custo(produto.id) if produto else None}
+    formulario = request.form if request.method == "POST" else None
+    return render_template("estoque/nfe_conferencia.html", nota=nota, dados=dados, sugestoes=sugestoes,
+                           origens=entrada_nfe.ORIGENS_SUGESTAO, form=formulario, **_contexto_formularios())
+
+
+@bp_estoque.route("/nfe/<int:id>/descartar", methods=["POST"])
+def descartar_nfe(id):
+    nota = db.get_or_404(NotaFiscal, id)
+    try:
+        entrada_nfe.descartar(nota)
+        db.session.commit()
+        flash(f"{nota.documento} descartada. Ela pode ser enviada de novo quando necessário.", "info")
+    except EstoqueError as erro:
+        flash(str(erro), "danger")
+    return redirect(url_for(".notas_fiscais"))
+
+
+@bp_estoque.route("/notas")
+def notas_fiscais():
+    pagina = NotaFiscal.query.order_by(NotaFiscal.criado_em.desc()).paginate(
+        page=request.args.get("pagina", 1, type=int), per_page=30, error_out=False)
+    return render_template("estoque/notas.html", pagina=pagina)
 
 
 @bp_estoque.route("/saida", methods=["GET", "POST"])

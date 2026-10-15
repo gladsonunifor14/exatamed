@@ -250,6 +250,9 @@ class Produto(TimestampMixin, db.Model):
     unidade_medida = db.Column(db.String(30), nullable=False, default="UN")
     localizacao_padrao_id = db.Column(db.Integer, db.ForeignKey("localizacoes.id"))
     alertas_alergia = db.Column(db.Text)
+    # Usados para reconhecer o produto na importação do XML da NF-e (e, no futuro, na leitura de código de barras).
+    gtin = db.Column(db.String(14), index=True)
+    registro_anvisa = db.Column(db.String(20), index=True)
     estoque_minimo = db.Column(QTD, nullable=False, default=0)
     estoque_maximo = db.Column(QTD, nullable=False, default=0)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
@@ -304,9 +307,12 @@ class Lote(db.Model):
     bloqueado = db.Column(db.Boolean, nullable=False, default=False)
     motivo_bloqueio = db.Column(db.String(200))
     bloqueado_em = db.Column(db.DateTime)
+    # Nota fiscal de origem (entradas importadas do XML da NF-e).
+    nota_fiscal_id = db.Column(db.Integer, db.ForeignKey("notas_fiscais.id"), index=True)
 
     produto = db.relationship("Produto", back_populates="lotes")
     localizacao = db.relationship("Localizacao")
+    nota_fiscal = db.relationship("NotaFiscal", back_populates="lotes")
 
     @property
     def valor(self):
@@ -585,3 +591,62 @@ class Sequencia(db.Model):
 
     nome = db.Column(db.String(40), primary_key=True)
     ultimo = db.Column(db.Integer, nullable=False, default=0)
+
+
+class NotaFiscal(TimestampMixin, db.Model):
+    """NF-e de entrada importada do XML. O XML original é guardado (obrigação fiscal)."""
+
+    __tablename__ = "notas_fiscais"
+
+    PENDENTE = "PENDENTE"
+    IMPORTADA = "IMPORTADA"
+    DESCARTADA = "DESCARTADA"
+    SITUACOES = {PENDENTE: "Aguardando conferência", IMPORTADA: "Importada", DESCARTADA: "Descartada"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(44), nullable=False, unique=True)
+    numero = db.Column(db.String(9), nullable=False)
+    serie = db.Column(db.String(3))
+    emissao = db.Column(db.DateTime)
+    emitente_cnpj = db.Column(db.String(14), index=True)
+    emitente_nome = db.Column(db.String(200))
+    valor_total = db.Column(QTD)
+    protocolo = db.Column(db.String(20))
+    situacao = db.Column(db.String(12), nullable=False, default=PENDENTE, index=True)
+    xml = db.Column(db.Text, nullable=False)
+    localizacao_id = db.Column(db.Integer, db.ForeignKey("localizacoes.id"))
+    importada_em = db.Column(db.DateTime)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
+
+    localizacao = db.relationship("Localizacao")
+    usuario = db.relationship("Usuario")
+    lotes = db.relationship("Lote", back_populates="nota_fiscal")
+
+    @property
+    def documento(self):
+        return f"NF-e {self.numero}/{self.serie or '1'}"
+
+    @property
+    def situacao_descricao(self):
+        return self.SITUACOES.get(self.situacao, self.situacao)
+
+
+class ProdutoFornecedor(db.Model):
+    """De-para: código do produto no fornecedor (cProd do XML) para o produto do ExataMed.
+
+    Aprendido a cada importação; o fator converte a unidade da nota (ex.: CX com 10)
+    na unidade de controle do estoque (ex.: AMP).
+    """
+
+    __tablename__ = "produtos_fornecedor"
+    __table_args__ = (db.UniqueConstraint("cnpj", "codigo", name="uq_produto_fornecedor"),
+                      db.CheckConstraint("fator > 0", name="ck_produto_fornecedor_fator"))
+
+    id = db.Column(db.Integer, primary_key=True)
+    cnpj = db.Column(db.String(14), nullable=False)
+    codigo = db.Column(db.String(60), nullable=False)
+    descricao = db.Column(db.String(200))
+    produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
+    fator = db.Column(QTD, nullable=False, default=1)
+
+    produto = db.relationship("Produto")
