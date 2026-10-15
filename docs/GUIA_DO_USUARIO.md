@@ -6,7 +6,7 @@ disponível dentro do sistema, no menu **Ajuda**.
 | Se você é... | Comece por |
 |---|---|
 | **Auxiliar de farmácia** | [Primeiro acesso](#primeiro-acesso), [Conhecendo o painel](#conhecendo-o-painel) e [Dispensação no dia a dia](#dispensação-no-dia-a-dia) |
-| **Farmacêutico(a)** | Os itens acima e também [Devolução de dispensação](#devolução-de-dispensação), [Outras operações de estoque](#outras-operações-de-estoque) e [Relatórios](#relatórios) |
+| **Farmacêutico(a)** | Os itens acima e também [Devolução de dispensação](#devolução-de-dispensação), [Outras operações de estoque](#outras-operações-de-estoque) [Relatórios](#relatórios) e [Dashboard de gestão](#dashboard-de-gestão) |
 | **Administrador(a)** | [Roteiro de implantação](#roteiro-de-implantação-administrador), [Gestão de usuários](#gestão-de-usuários-administrador), [Proteção de dados pessoais (LGPD)](#proteção-de-dados-pessoais-lgpd) e [Auditoria e integridade](#auditoria-e-integridade-administrador) |
 
 ## Primeiro acesso
@@ -356,6 +356,39 @@ lista (por exemplo, todos os da A1) ou um **medicamento** específico; deixe *To
 classificações* e *Todos os controlados* para o livro completo.
 
 ![Filtro por classificação na escrituração de controlados](img/livro_controlados_filtro.png)
+
+## Dashboard de gestão
+
+O menu **Dashboard** reúne os indicadores de gestão da farmácia numa só tela. No alto ficam os
+filtros e um resumo de cada indicador; clique num resumo para ir ao painel correspondente.
+
+| Filtro | Vale para |
+|---|---|
+| **Agrupar custo por** (dia, mês ou ano), **De** e **Até** | Evolução do custo; o período vale também para a curva ABC, o giro e as devoluções |
+| **Médico** e **Localização** | Evolução do custo |
+| **Curva ABC** (medicamentos, materiais ou ambos) | Curva ABC |
+
+Vencimentos, ruptura e estoque de segurança mostram sempre a **posição de hoje**. Ao passar o mouse
+(ou navegar com o teclado) sobre uma barra ou um ponto, aparece o valor; em *Ver tabela* estão os
+números de cada gráfico. Use **Imprimir** para levar o dashboard a uma reunião.
+
+![Dashboard de gestão](img/dashboard.png)
+
+| Indicador | Como é calculado |
+|---|---|
+| **Evolução do custo** | Custo PEPS do consumo por dia, mês ou ano: dispensações menos devoluções, mais saídas avulsas (menos as estornadas). Com **médico**, só as dispensações prescritas por ele. Com **localização**, o que foi dispensado para aquele local ou saiu dele |
+| **Curva ABC** | Itens ordenados pelo valor consumido no período. **A**: itens que somam os primeiros 80% do valor; **B**: até 95%; **C**: os 5% finais. Os itens A pedem controle mais rigoroso de compra e estoque |
+| **Itens próximos ao vencimento** | Lotes com saldo que vencem em até 30, 60 e 90 dias, com o valor parado em cada faixa. Lotes já vencidos com saldo aparecem num alerta: dê baixa pela contagem de inventário |
+| **Taxa de ruptura** | Itens em falta ÷ itens monitorados. Em falta: sem saldo utilizável (não vencido nem bloqueado) em nenhum local. Monitorados: ativos com estoque mínimo definido ou que já tiveram movimentação |
+| **Nível do estoque de segurança** | Saldo utilizável de cada item com estoque mínimo comparado ao mínimo: em ruptura, abaixo do mínimo, adequado ou acima do máximo. A lista mostra quanto do mínimo resta e quantos dias o saldo dura no consumo médio dos últimos 30 dias |
+| **Giro do estoque** | Custo do consumo no período ÷ estoque médio, com estoque médio = (estoque no início + estoque no fim) ÷ 2, pelo custo PEPS. Cobertura = dias do período ÷ giro. As listas mostram os itens parados (menor giro) e os de maior giro |
+| **Devoluções e avarias** | Taxa de devolução = valor devolvido ÷ valor dispensado (e quantas dispensações tiveram devolução). Taxa de avarias e perdas = valor das saídas avulsas por avaria, quebra, vencimento, perda ou extravio ÷ valor consumido |
+
+> **Para a taxa de avarias funcionar**, escreva o motivo da saída avulsa com uma destas palavras:
+> *avaria*, *quebra*, *vencimento*, *perda* ou *extravio*. A tela de saída avulsa já sugere esses
+> motivos.
+
+![Curva ABC e vencimentos](img/dashboard_abc.png)
 
 ## Como funciona o custo PEPS
 

@@ -141,6 +141,18 @@ estoque.
 - Itens de controle especial exigem médico prescritor e número da prescrição.
 - O comprovante da dispensação mostra os lotes efetivamente baixados e o custo PEPS e pode ser impresso.
 
+## Dashboard de gestão
+
+O menu **Dashboard** traz os painéis de gestão, com gráficos em SVG gerados no servidor (sem
+bibliotecas externas, compatíveis com a política de segurança de conteúdo e com a impressão):
+
+- **Evolução do custo** por dia, mês ou ano, com filtro de médico e de localização;
+- **Curva ABC** do consumo, com filtro de medicamentos e materiais;
+- **Itens próximos ao vencimento** em 30, 60 e 90 dias (e lotes vencidos com saldo);
+- **Taxa de ruptura** (itens em falta) e **nível do estoque de segurança**;
+- **Giro do estoque** e cobertura em dias, com os itens parados;
+- **Taxa de devolução** de medicamentos e **taxa de avarias e perdas**.
+
 ## Análises e relatórios
 
 | # | Relatório | O que mostra |

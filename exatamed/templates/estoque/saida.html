@@ -9,7 +9,8 @@
   <div class="col-md-3"><label class="form-label obrigatorio">Quantidade</label><input class="form-control" name="quantidade" inputmode="decimal" required></div>
   <div class="col-md-6"><label class="form-label obrigatorio">Motivo</label>
     <input class="form-control" name="motivo" maxlength="200" list="motivos" required>
-    <datalist id="motivos"><option>Consumo do setor</option><option>Perda / avaria</option><option>Devolução ao fornecedor</option><option>Quebra</option></datalist></div>
+    <datalist id="motivos">{% for m in motivos_saida %}<option>{{ m }}</option>{% endfor %}</datalist>
+    <div class="form-text">Use <em>avaria</em>, <em>quebra</em>, <em>vencimento</em>, <em>perda</em> ou <em>extravio</em> no motivo para a saída entrar na taxa de avarias do Dashboard.</div></div>
   <div class="col-md-6"><label class="form-label">Documento</label><input class="form-control" name="documento" maxlength="100"></div>
 </div><div class="card-footer text-end"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Registrar saída</button></div></form>
 {% endblock %}
