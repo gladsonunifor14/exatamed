@@ -14,8 +14,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Cadastro do produto na própria conferência da NF-e (farmacêutico), com os dados do XML já
   preenchidos; o produto fica escolhido no item sem perder o que foi conferido.
 - Exclusão de notas fiscais descartadas em **Estoque → Notas fiscais (NF-e)** (farmacêutico).
+- Estorno de movimentações em **Estoque → Movimentações**: lançamento inverso no mesmo lote e
+  custo, autorizado pela senha de um farmacêutico ou administrador (registrado na cadeia de
+  auditoria). Transferências são estornadas nas duas partes; dispensações viram devolução.
+- Filtro por classificação (A1, B1, C1, antimicrobiano...) na escrituração de controlados.
 
 ### Alterado
+- A chegada de uma transferência passa a ficar ligada à saída da origem.
 - Notas importadas não podem ser excluídas (documento de origem dos lotes); notas em conferência
   precisam ser descartadas antes.
 

@@ -281,6 +281,7 @@ devolvido). Não é possível devolver mais do que foi dispensado.
 | **Bloqueio de lote** | Estoque → Lotes e saldos → cadeado | Farmacêutico | Recall do fabricante, alerta ou interdição sanitária, quarentena |
 | **Lotes e saldos** | Estoque → Lotes e saldos | Todos | Ver o saldo de cada lote, com validade e custo |
 | **Movimentações** | Estoque → Movimentações | Todos | Histórico completo, com data, tipo, quantidade, custo e usuário |
+| **Estorno de movimentação** | Estoque → Movimentações → Estornar | Todos, com a senha de um farmacêutico ou administrador | Desfazer uma movimentação lançada por engano |
 
 **Contagem de inventário, passo a passo:**
 
@@ -303,6 +304,36 @@ exemplo *laudo de liberação nº 45/2026*). Bloqueios e desbloqueios ficam na t
 
 ![Lote bloqueado](img/lote_bloqueado.png)
 
+### Estorno de movimentação
+
+Uma movimentação lançada por engano (quantidade errada, lote trocado, local errado, lançamento em
+duplicidade) é desfeita pelo **estorno**, em **Estoque → Movimentações**, botão **Estornar** na
+linha da movimentação.
+
+1. Confira a movimentação e o que o estorno vai lançar (coluna *Estorno*).
+2. Informe o **motivo**.
+3. Um **farmacêutico ou administrador** informa o próprio usuário e a **senha** para autorizar.
+   O auxiliar pode iniciar o estorno, mas precisa da senha de um deles.
+4. Clique em **Estornar** e confirme.
+
+Nada é apagado: o estorno é um lançamento inverso, no mesmo lote e com o mesmo custo, ligado à
+movimentação original, que passa a mostrar *Estornada*. Quem autorizou fica registrado no estorno,
+que entra na cadeia de auditoria. Cada movimentação só pode ser estornada uma vez, e um estorno ou
+uma devolução não pode ser estornado.
+
+| Movimentação | O que o estorno faz |
+|---|---|
+| **Entrada** | Retira do lote a quantidade que entrou. Só é possível se o lote ainda tiver essa quantidade; se já houve saídas, estorne-as antes |
+| **Saída avulsa** | Devolve a quantidade ao lote. O consumo dos relatórios é abatido |
+| **Transferência** | Estorna as duas partes juntas: o estoque sai do destino e volta à origem |
+| **Ajuste de inventário** | Desfaz a diferença lançada na contagem |
+| **Dispensação** | Registra a devolução ao estoque do que ainda não foi devolvido (como em *Devolução de dispensação*) |
+
+Senhas erradas contam para o bloqueio do usuário, como no login. O estorno de uma entrada feita
+por importação de NF-e não reabre a nota.
+
+![Estorno de movimentação](img/estorno.png)
+
 ## Relatórios
 
 Acesse **Relatórios** no menu. Todos os relatórios podem ser **impressos** ou **exportados em
@@ -316,9 +347,15 @@ CSV**, que abre direto no Excel.
 | **Consumo por paciente** | Ver o que cada paciente recebeu e o custo (útil para faturamento) |
 | **Estoque mínimo/máximo e pedido de compra** | Montar o pedido de compra: mostra o saldo, o consumo médio, para quantos dias o estoque dá e quanto comprar |
 | **Inventário** | Ver a posição do estoque por lote e local, com o valor total, os lotes perto do vencimento e os bloqueados |
-| **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Só para farmacêuticos; a exportação fica registrada |
+| **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Filtra por **classificação** (A1, B1, C1, antimicrobiano...) ou por medicamento. Só para farmacêuticos; a exportação fica registrada |
 
 O atalho **Consumo** na lista de pacientes abre o consumo daquele paciente nos últimos 12 meses.
+
+Na **escrituração de controlados**, escolha a **classificação** para ver só os medicamentos de uma
+lista (por exemplo, todos os da A1) ou um **medicamento** específico; deixe *Todas as
+classificações* e *Todos os controlados* para o livro completo.
+
+![Filtro por classificação na escrituração de controlados](img/livro_controlados_filtro.png)
 
 ## Como funciona o custo PEPS
 
@@ -443,6 +480,7 @@ que seguem o procedimento do runbook de operação.
 | Cadastrar medicamentos e localizações (inclusive na conferência da NF-e) | | ✔ | ✔ |
 | Excluir registros e notas fiscais descartadas | | ✔ | ✔ |
 | Registrar devolução de dispensação | | ✔ | ✔ |
+| Autorizar estorno de movimentação (com a própria senha) | | ✔ | ✔ |
 | Bloquear e desbloquear lotes | | ✔ | ✔ |
 | Escrituração de controlados | | ✔ | ✔ |
 | Gerenciar usuários | | | ✔ |

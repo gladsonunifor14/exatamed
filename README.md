@@ -64,6 +64,8 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
   **valores decimais exatos** e baixa atômica (o saldo nunca fica negativo, mesmo com operações simultâneas).
 - **Devolução e estorno de dispensação** (total ou parcial) ao mesmo lote e custo, sem apagar o original.
 - **Bloqueio de lote** (recall, interdição, quarentena) em todos os locais.
+- **Estorno de movimentações** (entrada, saída, transferência, ajuste, dispensação) por lançamento
+  inverso, autorizado pela senha de um farmacêutico ou administrador.
 - **Alertas de alergia** em tempo real na dispensação e bloqueio até a ciência do farmacêutico.
 - Exigência de **médico prescritor e nº de prescrição** para itens de controle especial
   (listas da Portaria SVS/MS nº 344/1998 e antimicrobianos).
@@ -149,7 +151,7 @@ estoque.
 | 4 | **Consumo por paciente** | Dispensações, itens e custo por paciente; ao filtrar um paciente, os itens consumidos. |
 | 5 | **Estoque mínimo/máximo e pedido de compra** | Saldo utilizável, mínimo, máximo, consumo médio diário (CMD), cobertura em dias, situação e **sugestão de compra** com custo estimado. |
 | 6 | **Inventário** | Posição por lote e local, valorizada pelo custo PEPS, com destaque para lotes vencidos e a vencer em 90 dias, e resumo por produto. |
-| 7 | **Escrituração de controlados** | Livro dos medicamentos de controle especial (Portaria 344/98): saldo anterior, entradas, saídas com paciente, prescritor e responsável, saldo corrente e final. Restrito ao farmacêutico; exportação registrada. |
+| 7 | **Escrituração de controlados** | Livro dos medicamentos de controle especial (Portaria 344/98): saldo anterior, entradas, saídas com paciente, prescritor e responsável, saldo corrente e final. Filtro por classificação (A1, B1, C1, antimicrobiano...) ou por medicamento. Restrito ao farmacêutico; exportação registrada. |
 
 **Cálculo do pedido de compra**
 

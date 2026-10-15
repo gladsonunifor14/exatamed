@@ -116,46 +116,75 @@ def criar_admin_inicial():
     return admin
 
 
+class CredencialInvalida(Exception):
+    """Login ou senha recusados; ``status`` é o código HTTP sugerido para a resposta."""
+
+    def __init__(self, mensagem, status=200):
+        super().__init__(mensagem)
+        self.status = status
+
+
+def verificar_credenciais(login_digitado, senha):
+    """Confere login e senha com as mesmas proteções do login.
+
+    Limite de falhas por IP, bloqueio do usuário após tentativas seguidas e tempo de resposta
+    constante para login inexistente. Em caso de falha, grava a tentativa e confirma a
+    transação; em caso de sucesso, zera os contadores (o chamador confirma).
+    """
+    login_digitado = (login_digitado or "").strip().lower()
+    agora = datetime.now()
+    ip = (request.remote_addr or "desconhecido")[:45]
+    if TentativaLogin.query.filter(TentativaLogin.ip == ip, TentativaLogin.data > agora - JANELA_IP).count() \
+            >= MAX_FALHAS_POR_IP:
+        raise CredencialInvalida("Muitas tentativas de acesso a partir deste endereço. Aguarde 15 minutos e "
+                                 "tente novamente.", 429)
+    usuario = Usuario.query.filter(db.func.lower(Usuario.login) == login_digitado).first()
+    if usuario is None:
+        check_password_hash(_HASH_FICTICIO, senha)
+    if usuario and usuario.bloqueado_ate and usuario.bloqueado_ate > agora:
+        minutos = int((usuario.bloqueado_ate - agora).total_seconds() // 60) + 1
+        raise CredencialInvalida(f"Usuário bloqueado por excesso de tentativas. Tente novamente em {minutos} "
+                                 "minuto(s).")
+    if usuario and usuario.ativo and usuario.conferir_senha(senha):
+        usuario.tentativas_falhas = 0
+        usuario.bloqueado_ate = None
+        return usuario
+    if usuario and usuario.ativo:
+        usuario.tentativas_falhas += 1
+        if usuario.tentativas_falhas >= MAX_TENTATIVAS:
+            usuario.bloqueado_ate = agora + TEMPO_BLOQUEIO
+            usuario.tentativas_falhas = 0
+    db.session.add(TentativaLogin(ip=ip, data=agora))
+    TentativaLogin.query.filter(TentativaLogin.data < agora - timedelta(days=1)).delete()
+    db.session.commit()
+    raise CredencialInvalida("Usuário ou senha inválidos.")
+
+
+def autorizar(login_digitado, senha, perfil_minimo=Usuario.FARMACEUTICO):
+    """Autorização de uma operação sensível pela senha de um usuário com o perfil exigido."""
+    usuario = verificar_credenciais(login_digitado, senha)
+    if not usuario.pode(perfil_minimo):
+        raise CredencialInvalida(f"{usuario.login} não pode autorizar esta operação: é preciso o perfil "
+                                 f"{Usuario.PERFIS[perfil_minimo]} ou Administrador(a).")
+    return usuario
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("principal.painel"))
     if request.method == "POST":
-        login_digitado = request.form.get("login", "").strip().lower()
-        senha = request.form.get("senha", "")
-        agora = datetime.now()
-        ip = (request.remote_addr or "desconhecido")[:45]
-        if TentativaLogin.query.filter(TentativaLogin.ip == ip, TentativaLogin.data > agora - JANELA_IP).count() \
-                >= MAX_FALHAS_POR_IP:
-            flash("Muitas tentativas de acesso a partir deste endereço. Aguarde 15 minutos e tente novamente.",
-                  "danger")
-            return render_template("auth/login.html"), 429
-        usuario = Usuario.query.filter(db.func.lower(Usuario.login) == login_digitado).first()
-        if usuario is None:
-            check_password_hash(_HASH_FICTICIO, senha)
-        if usuario and usuario.bloqueado_ate and usuario.bloqueado_ate > agora:
-            minutos = int((usuario.bloqueado_ate - agora).total_seconds() // 60) + 1
-            flash(f"Usuário bloqueado por excesso de tentativas. Tente novamente em {minutos} minuto(s).",
-                  "danger")
-        elif usuario and usuario.ativo and usuario.conferir_senha(senha):
-            usuario.tentativas_falhas = 0
-            usuario.bloqueado_ate = None
-            usuario.ultimo_acesso = agora
-            db.session.commit()
-            session.clear()
-            login_user(usuario)
-            session.permanent = True
-            return redirect(_destino_seguro(request.args.get("next")) or url_for("principal.painel"))
-        else:
-            if usuario and usuario.ativo:
-                usuario.tentativas_falhas += 1
-                if usuario.tentativas_falhas >= MAX_TENTATIVAS:
-                    usuario.bloqueado_ate = agora + TEMPO_BLOQUEIO
-                    usuario.tentativas_falhas = 0
-            db.session.add(TentativaLogin(ip=ip, data=agora))
-            TentativaLogin.query.filter(TentativaLogin.data < agora - timedelta(days=1)).delete()
-            db.session.commit()
-            flash("Usuário ou senha inválidos.", "danger")
+        try:
+            usuario = verificar_credenciais(request.form.get("login", ""), request.form.get("senha", ""))
+        except CredencialInvalida as erro:
+            flash(str(erro), "danger")
+            return render_template("auth/login.html"), erro.status
+        usuario.ultimo_acesso = datetime.now()
+        db.session.commit()
+        session.clear()
+        login_user(usuario)
+        session.permanent = True
+        return redirect(_destino_seguro(request.args.get("next")) or url_for("principal.painel"))
     return render_template("auth/login.html")
 
 

@@ -18,7 +18,9 @@
   <div class="col-md-3"><label class="form-label">{{ 'Local de dispensação' if chave == 'consumo_local' else 'Local' }}</label>{{ select_local(locais, 'localizacao_id', args.localizacao_id, obrigatorio=False, vazio='Todos') }}</div>
   {% endif %}
   {% if filtros == 'periodo_produto' %}
-  <div class="col-md-4"><label class="form-label">Medicamento controlado</label><select class="form-select" name="produto_id"><option value="">Todos os controlados</option>
+  <div class="col-md-3"><label class="form-label" for="filtro-lista">Classificação</label><select class="form-select" name="lista" id="filtro-lista"><option value="">Todas as classificações</option>
+    {% for valor, rotulo in listas_controle %}<option value="{{ valor }}" {{ 'selected' if args.lista == valor }}>{{ rotulo }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><label class="form-label" for="filtro-produto">Medicamento controlado</label><select class="form-select" name="produto_id" id="filtro-produto"><option value="">Todos os controlados</option>
     {% for p in produtos if p.controle_especial %}<option value="{{ p.id }}" {{ 'selected' if args.produto_id == p.id|string }}>{{ p }} ({{ p.controle_especial }})</option>{% endfor %}</select></div>
   {% endif %}
   {% if filtros == 'periodo_paciente' %}

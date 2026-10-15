@@ -214,6 +214,7 @@ def transferir(produto, origem, destino, quantidade, documento=None, data=None):
             custo_unitario=origem_lote.custo_unitario,
             documento=documento,
             motivo=f"Recebido de {origem}",
+            origem=mov,  # liga a chegada à saída da origem (usado no estorno)
         ))
     return movimentacoes
 
@@ -377,3 +378,104 @@ def desbloquear_lote(produto, numero_lote, motivo):
         lote.bloqueado, lote.bloqueado_em = False, None
         lote.motivo_bloqueio = f"Desbloqueado: {motivo}"[:200]
     return lotes
+
+
+# --------------------------------------------------------------------------- estorno de movimentações
+
+def contraparte_transferencia(mov):
+    """A outra metade de uma transferência: saída da origem <-> chegada ao destino."""
+    if mov.quantidade < 0:
+        ligada = Movimentacao.query.filter_by(tipo=Movimentacao.TRANSFERENCIA, origem_id=mov.id).first()
+        if ligada:
+            return ligada
+        # Transferências anteriores à ligação: mesma data, produto, lote, quantidade e local de destino.
+        candidatas = Movimentacao.query.filter(
+            Movimentacao.tipo == Movimentacao.TRANSFERENCIA, Movimentacao.origem_id.is_(None),
+            Movimentacao.produto_id == mov.produto_id, Movimentacao.data == mov.data,
+            Movimentacao.localizacao_id == mov.destino_id, Movimentacao.quantidade == -mov.quantidade).all()
+    else:
+        if mov.origem is not None:
+            return mov.origem
+        candidatas = Movimentacao.query.filter(
+            Movimentacao.tipo == Movimentacao.TRANSFERENCIA, Movimentacao.quantidade == -mov.quantidade,
+            Movimentacao.produto_id == mov.produto_id, Movimentacao.data == mov.data,
+            Movimentacao.destino_id == mov.localizacao_id).all()
+    candidatas = [c for c in candidatas if c.lote.numero_lote == mov.lote.numero_lote]
+    if len(candidatas) != 1:
+        raise EstoqueError("Não foi possível identificar a outra parte desta transferência para estorná-la.")
+    return candidatas[0]
+
+
+def estorno_registrado(mov):
+    """Estorno já lançado para a movimentação (ou None)."""
+    return Movimentacao.query.filter(Movimentacao.origem_id == mov.id,
+                                     Movimentacao.tipo.in_(Movimentacao.ESTORNOS)).first()
+
+
+def verificar_estorno(mov):
+    """Confere se a movimentação pode ser estornada; devolve a mensagem de impedimento ou None."""
+    if mov.tipo not in Movimentacao.ESTORNAVEIS:
+        if mov.tipo in Movimentacao.ESTORNOS or mov.tipo == Movimentacao.ESTORNO:
+            return "esta movimentação já é um estorno ou devolução e não pode ser estornada"
+        return "este tipo de movimentação não pode ser estornado"
+    if mov.tipo == Movimentacao.DISPENSACAO:
+        return None if mov.quantidade_a_devolver > 0 else "a dispensação já foi devolvida por completo"
+    if estorno_registrado(mov):
+        return "a movimentação já foi estornada"
+    return None
+
+
+def _lancar_estorno(original, motivo, data):
+    """Lançamento inverso de `original`, no mesmo lote e com o mesmo custo."""
+    quantidade = -original.quantidade
+    lote = Lote.query.filter_by(id=original.lote_id).with_for_update().populate_existing().one()
+    if quantidade < 0:
+        if lote.saldo < -quantidade:
+            raise EstoqueError(
+                f"O lote {lote.numero_lote} de '{lote.produto}' em {lote.localizacao} já foi movimentado "
+                f"(saldo atual {formatar(lote.saldo)} {lote.produto.unidade_medida}, estorno de "
+                f"{formatar(-quantidade)}). Estorne antes as movimentações posteriores desse lote.")
+        _debitar_lote(lote, -quantidade)
+    else:
+        _creditar_lote(lote, quantidade)
+    estorno = Movimentacao(
+        tipo=Movimentacao.ESTORNO_SAIDA if original.tipo == Movimentacao.SAIDA else Movimentacao.ESTORNO_MOV,
+        data=data, produto=original.produto, lote=lote, localizacao=lote.localizacao,
+        quantidade=quantidade, custo_unitario=original.custo_unitario, origem=original,
+        documento=original.documento, motivo=motivo,
+    )
+    db.session.add(estorno)
+    return estorno
+
+
+def estornar(mov, motivo, autorizador, data=None):
+    """Desfaz uma movimentação com lançamentos inversos; nada é apagado.
+
+    - Entrada, saída avulsa e ajuste: lançamento inverso no mesmo lote e custo. A entrada só é
+      estornada se o lote ainda tiver a quantidade que entrou.
+    - Transferência: as duas metades são estornadas juntas (o estoque volta à origem).
+    - Dispensação: devolução do que ainda não foi devolvido, ligada à dispensação.
+
+    `autorizador` é o farmacêutico ou administrador que confirmou a senha; fica registrado no
+    motivo, que faz parte da cadeia de auditoria selada.
+    """
+    motivo = (motivo or "").strip()
+    if not motivo:
+        raise EstoqueError("Informe o motivo do estorno.")
+    db.session.flush()
+    mov = Movimentacao.query.filter_by(id=mov.id).with_for_update().populate_existing().one()
+    impedimento = verificar_estorno(mov)
+    if impedimento:
+        raise EstoqueError(f"Não é possível estornar: {impedimento}.")
+    texto = f"Estorno autorizado por {autorizador.login} ({autorizador.perfil_descricao}): {motivo}"[:200]
+    data = data or datetime.now()
+    if mov.tipo == Movimentacao.DISPENSACAO:
+        return devolver(mov.dispensacao, {mov.id: mov.quantidade_a_devolver}, texto, data=data)
+    if mov.tipo == Movimentacao.TRANSFERENCIA:
+        outra = contraparte_transferencia(mov)
+        if estorno_registrado(outra):
+            raise EstoqueError("Não é possível estornar: a transferência já foi estornada.")
+        chegada, saida = (mov, outra) if mov.quantidade > 0 else (outra, mov)
+        # Primeiro tira do destino (pode faltar saldo), depois devolve à origem.
+        return [_lancar_estorno(chegada, texto, data), _lancar_estorno(saida, texto, data)]
+    return [_lancar_estorno(mov, texto, data)]
