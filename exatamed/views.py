@@ -9,7 +9,7 @@ from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_t
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
-from . import entrada_nfe, estoque, relatorios
+from . import dashboard, entrada_nfe, estoque, graficos, relatorios
 from .ajuda import primeiros_passos
 from .auth import CredencialInvalida, autorizar, perfil_requerido
 from .cadastros import CADASTROS, LISTAS_CONTROLE, UNIDADES, preencher
@@ -35,6 +35,7 @@ from .numeros import ZERO, decimal, formatar
 principal = Blueprint("principal", __name__)
 bp_estoque = Blueprint("estoque", __name__, url_prefix="/estoque")
 bp_relatorios = Blueprint("relatorios", __name__, url_prefix="/relatorios")
+bp_dashboard = Blueprint("dashboard", __name__, url_prefix="/dashboard")
 
 
 def _data(nome, padrao=None):
@@ -283,7 +284,7 @@ def saida():
                                        documento=_texto("documento", Movimentacao.documento, "Documento"))
         return sum(m.custo_total for m in movs)
     return _executar(operacao, lambda custo: f"Saída registrada. Custo PEPS: R$ {custo:,.2f}.",
-                     "estoque/saida.html")
+                     "estoque/saida.html", motivos_saida=dashboard.MOTIVOS_SAIDA)
 
 
 @bp_estoque.route("/transferencia", methods=["GET", "POST"])
@@ -656,3 +657,40 @@ def consumo_paciente():
     args = request.args.to_dict()
     args.setdefault("inicio", (date.today() - timedelta(days=365)).isoformat())
     return redirect(url_for(".exibir", chave="consumo_paciente", **args))
+
+
+# --------------------------------------------------------------------------- dashboard de gestão
+
+@bp_dashboard.route("/", endpoint="indice")
+def painel_de_gestao():
+    hoje = date.today()
+    granularidade = request.args.get("granularidade", "mes")
+    if granularidade not in dashboard.GRANULARIDADES:
+        granularidade = "mes"
+    padrao_inicio, padrao_fim = dashboard.periodo_padrao(granularidade, hoje)
+    try:
+        inicio, fim = _data("inicio", padrao_inicio), _data("fim", padrao_fim)
+        if inicio > fim:
+            raise EstoqueError("A data inicial deve ser anterior à final.")
+        if granularidade == "dia" and (fim - inicio).days > 366:
+            raise EstoqueError("Para ver por dia, escolha um período de até um ano (ou agrupe por mês).")
+    except EstoqueError as erro:
+        flash(str(erro), "warning")
+        inicio, fim = padrao_inicio, padrao_fim
+    medico_id = request.args.get("medico_id", type=int)
+    localizacao_id = request.args.get("localizacao_id", type=int)
+    tipo = request.args.get("tipo") if request.args.get("tipo") in Produto.TIPOS else None
+    custo = dashboard.evolucao_custo(inicio, fim, granularidade, medico_id, localizacao_id)
+    abc = dashboard.curva_abc(inicio, fim, tipo)
+    contexto = _contexto_formularios()
+    contexto["medicos"] = Medico.query.order_by(Medico.nome).all()
+    return render_template(
+        "dashboard/indice.html", filtro=request.args, granularidade=granularidade, inicio=inicio, fim=fim,
+        granularidades=dashboard.GRANULARIDADES, tipos=Produto.TIPOS, tipo=tipo,
+        medico=db.session.get(Medico, medico_id) if medico_id else None,
+        local=db.session.get(Localizacao, localizacao_id) if localizacao_id else None,
+        custo=custo, grafico_custo=graficos.barras(custo["pontos"]),
+        abc=abc, grafico_abc=graficos.curva_abc(abc["itens"]) if abc["itens"] else None,
+        vencimentos=dashboard.vencimentos(hoje), ruptura=dashboard.ruptura(hoje),
+        seguranca=dashboard.estoque_seguranca(hoje), giro=dashboard.giro_estoque(inicio, fim),
+        devolucoes=dashboard.devolucoes_avarias(inicio, fim), **contexto)

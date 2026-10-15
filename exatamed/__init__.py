@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [
@@ -208,6 +208,7 @@ def create_app(config=None):
     app.register_blueprint(views.principal)
     app.register_blueprint(views.bp_estoque)
     app.register_blueprint(views.bp_relatorios)
+    app.register_blueprint(views.bp_dashboard)
     app.register_blueprint(cadastros.bp)
     app.register_blueprint(ajuda.bp)
     app.register_blueprint(lgpd.bp)
@@ -285,6 +286,12 @@ def create_app(config=None):
         if "," in texto:
             texto = texto.rstrip("0").rstrip(",")
         return texto
+
+    @app.template_filter("percentual")
+    def percentual(valor, casas=1):
+        if valor is None:
+            return "—"
+        return f"{valor:.{casas}f}".replace(".", ",") + "%"
 
     @app.template_filter("numero_campo")
     def numero_campo(valor):

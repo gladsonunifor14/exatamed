@@ -3,6 +3,17 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.3.0] — 2026-10-15
+
+### Adicionado
+- Menu **Dashboard** com painéis de gestão: evolução do custo por dia/mês/ano (filtros de médico
+  e localização), curva ABC (filtro de medicamentos e materiais), itens a vencer em 30/60/90 dias,
+  taxa de ruptura, nível do estoque de segurança, giro do estoque e taxas de devolução e de
+  avarias/perdas.
+- Gráficos em SVG gerados no servidor, com dica ao passar o mouse ou focar pelo teclado e tabela
+  de valores de cada gráfico.
+- Sugestões padronizadas de motivo na saída avulsa (avaria, quebra, vencimento, perda...).
+
 ## [2.2.0] — 2026-10-15
 
 ### Adicionado

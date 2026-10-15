@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block titulo %}Dashboard{% endblock %}
+{% macro status_badge(status, rotulo) -%}
+  {%- set icones = {'critico': 'x-octagon-fill', 'serio': 'exclamation-triangle-fill', 'alerta': 'exclamation-circle-fill', 'bom': 'check-circle-fill'} -%}
+  <span class="viz-status viz-status-{{ status }}"><i class="bi bi-{{ icones[status] }}" aria-hidden="true"></i> {{ rotulo }}</span>
+{%- endmacro %}
+{% block conteudo %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <div>
+    <h1 class="h3 mb-0"><i class="bi bi-speedometer2"></i> Dashboard de gestão</h1>
+    <div class="text-muted small">Período: {{ inicio|data }} a {{ fim|data }} · posição do estoque em {{ hoje|data }}</div>
+  </div>
+  <button class="btn btn-outline-secondary d-print-none" data-acao="imprimir"><i class="bi bi-printer"></i> Imprimir</button>
+</div>
+
+<form class="card card-body mb-4 d-print-none" method="get" id="filtros-dashboard">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="granularidade">Agrupar custo por</label>
+      <select class="form-select form-select-sm" id="granularidade" name="granularidade">
+        {% for valor, rotulo in granularidades.items() %}<option value="{{ valor }}" {{ 'selected' if granularidade == valor }}>{{ rotulo }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="inicio">De</label>
+      <input class="form-control form-control-sm" type="date" id="inicio" name="inicio" value="{{ inicio.isoformat() }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="fim">Até</label>
+      <input class="form-control form-control-sm" type="date" id="fim" name="fim" value="{{ fim.isoformat() }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="medico_id">Médico</label>
+      <select class="form-select form-select-sm" id="medico_id" name="medico_id"><option value="">Todos</option>
+        {% for m in medicos %}<option value="{{ m.id }}" {{ 'selected' if medico and medico.id == m.id }}>{{ m.nome }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="localizacao_id">Localização</label>
+      <select class="form-select form-select-sm" id="localizacao_id" name="localizacao_id"><option value="">Todas</option>
+        {% for l in locais %}<option value="{{ l.id }}" {{ 'selected' if local and local.id == l.id }}>{{ l.nome }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small mb-1" for="tipo">Curva ABC</label>
+      <select class="form-select form-select-sm" id="tipo" name="tipo"><option value="">Medicamentos e materiais</option>
+        {% for valor, rotulo in tipos.items() %}<option value="{{ valor }}" {{ 'selected' if tipo == valor }}>{{ 'Medicamentos' if valor == 'MEDICAMENTO' else 'Materiais' }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+    <div class="form-text m-0">O período vale para custo, curva ABC, giro e devoluções. Médico e localização filtram a evolução do custo.
+      Vencimentos, ruptura e estoque de segurança mostram a posição de hoje.</div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('dashboard.indice') }}">Limpar</a>
+      <button class="btn btn-sm btn-exata"><i class="bi bi-funnel"></i> Aplicar</button>
+    </div>
+  </div>
+</form>
+
+<div class="row g-3 mb-4">
+  {% set faixa90 = vencimentos.faixas|sum(attribute='valor') %}
+  {% for rotulo, valor, detalhe, ancora in [
+      ('Custo do consumo', custo.total|moeda, 'no período', '#painel-custo'),
+      ('Taxa de ruptura', ruptura.taxa|percentual, ruptura.em_falta|length ~ ' de ' ~ ruptura.monitorados ~ ' itens em falta', '#painel-ruptura'),
+      ('Giro do estoque', (giro.giro|numero ~ 'x') if giro.giro is not none else '—', ('cobertura de ' ~ (giro.cobertura|numero(0)) ~ ' dias') if giro.cobertura else 'sem estoque médio no período', '#painel-giro'),
+      ('Taxa de devolução', devolucoes.taxa_devolucao|percentual, 'do valor dispensado', '#painel-devolucoes'),
+      ('Avarias e perdas', devolucoes.taxa_avarias|percentual, 'do valor consumido', '#painel-devolucoes'),
+      ('A vencer em 90 dias', faixa90|moeda, (vencimentos.faixas|sum(attribute='lotes')) ~ ' lote(s)', '#painel-vencimentos')] %}
+  <div class="col-6 col-lg-4 col-xxl-2"><a class="card kpi h-100 text-decoration-reset" href="{{ ancora }}"><div class="card-body">
+    <div class="rotulo">{{ rotulo }}</div><div class="valor">{{ valor }}</div><div class="small text-muted">{{ detalhe }}</div>
+  </div></a></div>
+  {% endfor %}
+</div>
+
+{# ------------------------------------------------------------------ evolução do custo #}
+<section class="card mb-4" id="painel-custo" aria-labelledby="titulo-custo">
+  <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+    <h2 class="h6 mb-0 fw-semibold" id="titulo-custo"><i class="bi bi-bar-chart"></i> Evolução do custo por {{ granularidades[granularidade]|lower }}</h2>
+    <span class="small text-muted">{% if medico %}Médico: <strong>{{ medico.nome }}</strong>{% endif %}{% if medico and local %} · {% endif %}{% if local %}Localização: <strong>{{ local.nome }}</strong>{% endif %}{% if not medico and not local %}Todos os médicos e localizações{% endif %}</span>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-4 mb-2 small">
+      <div><span class="text-muted">Total</span> <strong>{{ custo.total|moeda }}</strong></div>
+      <div><span class="text-muted">Média por {{ granularidades[granularidade]|lower }}</span> <strong>{{ custo.media|moeda }}</strong></div>
+      {% if custo.maior %}<div><span class="text-muted">Maior</span> <strong>{{ custo.maior.valor|moeda }}</strong> ({{ custo.maior.rotulo }})</div>{% endif %}
+    </div>
+    {% if custo.total %}
+    {% set g = grafico_custo %}
+    <svg class="viz" viewBox="0 0 {{ g.largura }} {{ g.altura }}" role="img" aria-labelledby="titulo-custo">
+      {% for l in g.linhas %}<line class="{{ 'viz-eixo' if loop.first else 'viz-grade' }}" x1="{{ g.margem.esq }}" x2="{{ g.fim_x }}" y1="{{ l.y }}" y2="{{ l.y }}"/>
+      <text class="viz-texto" x="{{ g.margem.esq - 6 }}" y="{{ l.y + 4 }}" text-anchor="end">{{ l.rotulo }}</text>{% endfor %}
+      {% for m in g.marcas %}<g class="viz-marca" tabindex="0" data-dica="{{ m.dica }}">
+        <title>{{ m.dica }}</title>
+        <rect class="viz-alvo" x="{{ m.alvo_x }}" y="{{ g.topo }}" width="{{ m.alvo_l }}" height="{{ g.base - g.topo }}"/>
+        {% if m.caminho %}<path class="viz-barra" d="{{ m.caminho }}"/>{% endif %}
+        {% if m.mostrar_rotulo %}<text class="viz-texto" x="{{ m.centro }}" y="{{ g.base + 18 }}" text-anchor="middle">{{ m.rotulo }}</text>{% endif %}
+      </g>{% endfor %}
+    </svg>
+    <details class="mt-2"><summary class="small">Ver tabela</summary>
+      <div class="table-responsive viz-tabela"><table class="table table-sm mb-0"><thead><tr><th>Período</th><th class="text-end">Custo</th></tr></thead>
+        <tbody>{% for p in custo.pontos %}<tr><td>{{ p.rotulo }}</td><td class="text-end">{{ p.valor|moeda }}</td></tr>{% endfor %}</tbody></table></div>
+    </details>
+    {% else %}<p class="text-muted text-center py-4 mb-0">Nenhum consumo no período com os filtros escolhidos.</p>{% endif %}
+  </div>
+</section>
+
+<div class="row g-4 mb-4">
+  {# ---------------------------------------------------------------- curva ABC #}
+  <div class="col-xl-7">
+  <section class="card h-100" id="painel-abc" aria-labelledby="titulo-abc">
+    <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+      <h2 class="h6 mb-0 fw-semibold" id="titulo-abc"><i class="bi bi-sort-down"></i> Curva ABC · {{ 'medicamentos' if tipo == 'MEDICAMENTO' else 'materiais' if tipo == 'MATERIAL' else 'medicamentos e materiais' }}</h2>
+      <span class="small text-muted">Valor consumido no período: <strong>{{ abc.total|moeda }}</strong></span>
+    </div>
+    <div class="card-body">
+    {% if abc.itens %}
+      <div class="row g-2 mb-3">
+        {% for classe, faixa in [('A', 'até 80% do valor'), ('B', 'de 80% a 95%'), ('C', 'últimos 5%')] %}{% set r = abc.resumo[classe] %}
+        <div class="col-4"><div class="viz-classe viz-classe-{{ classe }}">
+          <div class="fw-semibold">Classe {{ classe }} <span class="small text-muted fw-normal">{{ faixa }}</span></div>
+          <div class="fs-5 fw-semibold">{{ r.itens }} {{ 'item' if r.itens == 1 else 'itens' }} <span class="small text-muted fw-normal">({{ r.perc_itens|percentual }})</span></div>
+          <div class="small">{{ r.valor|moeda }} · {{ r.perc_valor|percentual }} do valor</div>
+        </div></div>{% endfor %}
+      </div>
+      {% set g = grafico_abc %}
+      <svg class="viz" viewBox="0 0 {{ g.largura }} {{ g.altura }}" role="img" aria-label="Curva ABC: valor acumulado pela porcentagem dos itens">
+        {% for l in g.linhas %}<line class="{{ 'viz-eixo' if loop.first else 'viz-grade' }}" x1="{{ g.margem.esq }}" x2="{{ g.fim_x }}" y1="{{ l.y }}" y2="{{ l.y }}"/>
+        <text class="viz-texto" x="{{ g.margem.esq - 6 }}" y="{{ l.y + 4 }}" text-anchor="end">{{ l.rotulo }}</text>{% endfor %}
+        {% for r in g.referencias %}<line class="viz-referencia" x1="{{ g.margem.esq }}" x2="{{ g.fim_x }}" y1="{{ r.y }}" y2="{{ r.y }}"/>
+        <text class="viz-texto" x="{{ g.margem.esq + 6 }}" y="{{ r.y - 4 }}">limite {{ 'A' if r.rotulo == '80%' else 'B' }} ({{ r.rotulo }})</text>{% endfor %}
+        {% for x in g.eixo_x %}<text class="viz-texto" x="{{ x.x }}" y="{{ g.base + 18 }}" text-anchor="middle">{{ x.rotulo }}</text>{% endfor %}
+        {% for c in g.caminhos %}<path class="viz-linha viz-linha-{{ c.classe }}" d="{{ c.d }}"/>{% endfor %}
+        {% for m in g.marcadores %}<circle class="viz-ponto viz-ponto-{{ m.classe }}" cx="{{ m.x }}" cy="{{ m.y }}" r="4" tabindex="0" data-dica="{{ m.dica }}"><title>{{ m.dica }}</title></circle>{% endfor %}
+      </svg>
+      <div class="viz-legenda small mb-2">{% for classe in 'ABC' %}<span><i class="viz-chave viz-chave-{{ classe }}"></i> Classe {{ classe }}</span>{% endfor %}
+        <span class="text-muted ms-auto">Horizontal: % dos itens · vertical: % acumulado do valor</span></div>
+      <details><summary class="small">Ver itens ({{ abc.itens|length }})</summary>
+        <div class="table-responsive viz-tabela"><table class="table table-sm mb-0">
+          <thead><tr><th>#</th><th>Item</th><th>Classe</th><th class="text-end">Quantidade</th><th class="text-end">Valor</th><th class="text-end">%</th><th class="text-end">% acum.</th></tr></thead>
+          <tbody>{% for i in abc.itens %}<tr><td>{{ i.posicao }}</td><td>{{ i.produto }}</td><td><span class="viz-rotulo-classe viz-classe-{{ i.classe }}">{{ i.classe }}</span></td>
+            <td class="text-end">{{ i.quantidade|numero }} {{ i.produto.unidade_medida }}</td><td class="text-end">{{ i.valor|moeda }}</td>
+            <td class="text-end">{{ i.participacao|percentual }}</td><td class="text-end">{{ i.acumulado|percentual }}</td></tr>{% endfor %}</tbody></table></div>
+      </details>
+    {% else %}<p class="text-muted text-center py-4 mb-0">Nenhum consumo no período para montar a curva ABC.</p>{% endif %}
+    </div>
+  </section>
+  </div>
+
+  {# ---------------------------------------------------------------- vencimentos #}
+  <div class="col-xl-5">
+  <section class="card h-100" id="painel-vencimentos" aria-labelledby="titulo-vencimentos">
+    <div class="card-header"><h2 class="h6 mb-0 fw-semibold" id="titulo-vencimentos"><i class="bi bi-calendar-x"></i> Itens próximos ao vencimento</h2></div>
+    <div class="card-body">
+      <div class="row g-2 mb-3">
+        {% for f in vencimentos.faixas %}
+        <div class="col-4"><div class="viz-faixa viz-faixa-{{ f.status }}">
+          <div>{{ status_badge(f.status, f.rotulo) }}</div>
+          <div class="fs-5 fw-semibold">{{ f.lotes }} {{ 'lote' if f.lotes == 1 else 'lotes' }}</div>
+          <div class="small">{{ f.valor|moeda }}</div>
+        </div></div>{% endfor %}
+      </div>
+      {% if vencimentos.vencidos.lotes %}<div class="alert alert-danger py-2 small"><i class="bi bi-x-octagon-fill"></i> <strong>{{ vencimentos.vencidos.lotes }} lote(s) vencido(s)</strong> ainda com saldo ({{ vencimentos.vencidos.valor|moeda }}). Dê baixa pela contagem de inventário.</div>{% endif %}
+      <div class="table-responsive viz-tabela"><table class="table table-sm mb-0">
+        <thead><tr><th>Item / lote</th><th>Validade</th><th class="text-end">Saldo</th><th class="text-end">Valor</th></tr></thead>
+        <tbody>{% for v in vencimentos.lotes %}
+          <tr><td>{{ v.lote.produto }}<div class="small text-muted">Lote {{ v.lote.numero_lote }} · {{ v.lote.localizacao }}</div></td>
+            <td class="text-nowrap">{{ v.lote.validade|data }} <span class="small {{ 'text-danger fw-semibold' if v.dias < 0 else 'text-muted' }}">({{ 'vencido' if v.dias < 0 else v.dias ~ ' d' }})</span></td>
+            <td class="text-end">{{ v.lote.saldo|numero }}</td><td class="text-end text-nowrap">{{ v.valor|moeda }}</td></tr>
+        {% else %}<tr><td colspan="4" class="text-center text-muted py-3">Nenhum lote vence nos próximos 90 dias.</td></tr>{% endfor %}</tbody></table></div>
+    </div>
+  </section>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# ---------------------------------------------------------------- ruptura #}
+  <div class="col-xl-6">
+  <section class="card h-100" id="painel-ruptura" aria-labelledby="titulo-ruptura">
+    <div class="card-header"><h2 class="h6 mb-0 fw-semibold" id="titulo-ruptura"><i class="bi bi-slash-circle"></i> Taxa de ruptura do estoque</h2></div>
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-end gap-4 mb-3">
+        <div><div class="viz-hero">{{ ruptura.taxa|percentual }}</div><div class="small text-muted">dos itens monitorados estão em falta</div></div>
+        <div class="small"><strong>{{ ruptura.em_falta|length }}</strong> em falta de <strong>{{ ruptura.monitorados }}</strong> itens monitorados</div>
+      </div>
+      <p class="form-text">Em falta: item sem saldo utilizável (não vencido nem bloqueado) em nenhum local. Itens monitorados: ativos com estoque mínimo definido ou que já tiveram movimentação.</p>
+      <div class="table-responsive viz-tabela"><table class="table table-sm mb-0">
+        <thead><tr><th>Item em falta</th><th class="text-end">Mínimo</th><th class="text-end">Consumo/dia</th><th class="text-end">Vencido ou bloqueado</th></tr></thead>
+        <tbody>{% for r in ruptura.em_falta %}
+          <tr><td>{{ status_badge('critico', '') }} {{ r.produto }}</td><td class="text-end">{{ r.produto.estoque_minimo|numero }}</td>
+            <td class="text-end">{{ r.cmd|numero }}</td><td class="text-end">{{ r.saldo_total|numero if r.saldo_total else '—' }}</td></tr>
+        {% else %}<tr><td colspan="4" class="text-center text-muted py-3">{{ status_badge('bom', 'Nenhum item em falta.') }}</td></tr>{% endfor %}</tbody></table></div>
+    </div>
+  </section>
+  </div>
+
+  {# ---------------------------------------------------------------- estoque de segurança #}
+  <div class="col-xl-6">
+  <section class="card h-100" id="painel-seguranca" aria-labelledby="titulo-seguranca">
+    <div class="card-header"><h2 class="h6 mb-0 fw-semibold" id="titulo-seguranca"><i class="bi bi-shield-check"></i> Nível do estoque de segurança</h2></div>
+    <div class="card-body">
+    {% if seguranca.total %}
+      <div class="viz-empilhada mb-2" role="img" aria-label="Distribuição dos {{ seguranca.total }} itens com estoque mínimo">
+        {% for n in seguranca.niveis if n.itens %}<div class="viz-segmento viz-fundo-{{ n.status }}" style="width: {{ n.percentual }}%" tabindex="0"
+          data-dica="{{ n.rotulo }}: {{ n.itens }} item(ns) · {{ n.percentual|percentual }}" title="{{ n.rotulo }}: {{ n.itens }}"></div>{% endfor %}
+      </div>
+      <div class="viz-legenda small mb-3">{% for n in seguranca.niveis %}<span>{{ status_badge(n.status, n.rotulo) }} <strong>{{ n.itens }}</strong> ({{ n.percentual|percentual }})</span>{% endfor %}</div>
+      <p class="form-text">Estoque de segurança = estoque mínimo do cadastro, comparado ao saldo utilizável de todos os locais. {{ seguranca.total }} itens com mínimo definido{% if seguranca.sem_minimo %}; {{ seguranca.sem_minimo }} item(ns) ativo(s) sem mínimo não entram no cálculo{% endif %}.</p>
+      <div class="table-responsive viz-tabela"><table class="table table-sm mb-0">
+        <thead><tr><th>Item abaixo do mínimo</th><th class="text-end">Saldo</th><th class="text-end">Mínimo</th><th style="width: 28%">Nível</th><th class="text-end">Dura</th></tr></thead>
+        <tbody>{% for c in seguranca.criticos %}
+          <tr><td>{{ c.produto }}</td><td class="text-end">{{ c.saldo|numero }}</td><td class="text-end">{{ c.produto.estoque_minimo|numero }}</td>
+            <td><div class="viz-medidor" title="{{ c.cobertura_minimo|percentual(0) }} do mínimo"><div class="viz-fundo-{{ c.nivel.status }}" style="width: {{ [c.cobertura_minimo, 100]|min }}%"></div></div>
+              <span class="small text-muted">{{ c.cobertura_minimo|percentual(0) }} do mínimo</span></td>
+            <td class="text-end small">{{ (c.dias|numero(0) ~ ' dias') if c.dias is not none else '—' }}</td></tr>
+        {% else %}<tr><td colspan="5" class="text-center text-muted py-3">{{ status_badge('bom', 'Todos os itens no estoque de segurança ou acima.') }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="text-muted text-center py-4 mb-0">Nenhum item com estoque mínimo definido. Informe o mínimo no cadastro dos medicamentos e materiais.</p>{% endif %}
+    </div>
+  </section>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  {# ---------------------------------------------------------------- giro #}
+  <div class="col-xl-6">
+  <section class="card h-100" id="painel-giro" aria-labelledby="titulo-giro">
+    <div class="card-header"><h2 class="h6 mb-0 fw-semibold" id="titulo-giro"><i class="bi bi-arrow-repeat"></i> Giro do estoque</h2></div>
+    <div class="card-body">
+      <div class="row g-2 mb-2">
+        {% for rotulo, valor in [('Giro no período', (giro.giro|numero ~ 'x') if giro.giro is not none else '—'),
+                                 ('Giro anualizado', (giro.giro_anual|numero(1) ~ 'x') if giro.giro_anual is not none else '—'),
+                                 ('Cobertura', (giro.cobertura|numero(0) ~ ' dias') if giro.cobertura else '—'),
+                                 ('Estoque médio', giro.estoque_medio|moeda)] %}
+        <div class="col-6 col-md-3"><div class="viz-mini"><div class="small text-muted">{{ rotulo }}</div><div class="fw-semibold">{{ valor }}</div></div></div>{% endfor %}
+      </div>
+      <p class="form-text">Giro = custo do consumo no período ({{ giro.consumo|moeda }}) ÷ estoque médio, com estoque médio = (estoque no início + estoque no fim) ÷ 2, pelo custo PEPS. Cobertura = dias do período ÷ giro.</p>
+      <div class="row g-3">
+        {% for titulo, lista in [('Menor giro (itens parados)', giro.menor_giro), ('Maior giro', giro.maior_giro)] %}
+        <div class="col-md-6"><h3 class="h6 small fw-semibold">{{ titulo }}</h3>
+          <div class="table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>Item</th><th class="text-end">Giro</th><th class="text-end">Cobertura</th></tr></thead>
+            <tbody>{% for i in lista %}<tr><td class="small">{{ i.produto }}<div class="text-muted">estoque médio {{ i.estoque_medio|moeda }}</div></td>
+              <td class="text-end">{{ i.giro|numero }}x</td><td class="text-end small">{{ (i.cobertura|numero(0) ~ ' d') if i.cobertura else 'sem consumo' }}</td></tr>
+            {% else %}<tr><td colspan="3" class="text-muted text-center small py-2">Sem dados no período.</td></tr>{% endfor %}</tbody></table></div>
+        </div>{% endfor %}
+      </div>
+    </div>
+  </section>
+  </div>
+
+  {# ---------------------------------------------------------------- devoluções e avarias #}
+  <div class="col-xl-6">
+  <section class="card h-100" id="painel-devolucoes" aria-labelledby="titulo-devolucoes">
+    <div class="card-header"><h2 class="h6 mb-0 fw-semibold" id="titulo-devolucoes"><i class="bi bi-arrow-return-left"></i> Devoluções de medicamentos e avarias</h2></div>
+    <div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-md-6"><div class="viz-mini">
+          <div class="small text-muted">Taxa de devolução</div><div class="viz-hero">{{ devolucoes.taxa_devolucao|percentual }}</div>
+          <div class="small">{{ devolucoes.devolvido|moeda }} devolvidos de {{ devolucoes.dispensado|moeda }} dispensados</div>
+          <div class="small text-muted">{{ devolucoes.com_devolucao }} de {{ devolucoes.dispensacoes }} dispensações com devolução ({{ devolucoes.taxa_dispensacoes|percentual }})</div>
+        </div></div>
+        <div class="col-md-6"><div class="viz-mini">
+          <div class="small text-muted">Taxa de avarias e perdas</div><div class="viz-hero">{{ devolucoes.taxa_avarias|percentual }}</div>
+          <div class="small">{{ devolucoes.perdas|moeda }} de {{ devolucoes.consumo|moeda }} consumidos</div>
+        </div></div>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Saídas avulsas por motivo</th><th class="text-end">Saídas</th><th class="text-end">Valor</th><th class="text-end">% do consumo</th></tr></thead>
+        <tbody>{% for c in devolucoes.categorias %}<tr class="{{ 'text-muted' if loop.last }}"><td>{{ c.categoria }}</td><td class="text-end">{{ c.saidas }}</td><td class="text-end">{{ c.valor|moeda }}</td><td class="text-end">{{ c.percentual|percentual }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      <p class="form-text mb-0">As saídas avulsas são classificadas pelo motivo informado (ex.: <em>avaria</em>, <em>quebra</em>, <em>vencimento</em>, <em>perda</em>, <em>extravio</em>). Saídas estornadas não contam.</p>
+    </div>
+  </section>
+  </div>
+</div>
+<div class="viz-dica" id="viz-dica" role="tooltip" hidden></div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

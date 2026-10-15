@@ -17,3 +17,52 @@ body { background: #f4f7f7; }
 .guia blockquote p:last-child { margin-bottom: 0; }
 .sumario-ajuda .list-group-item { font-size: .9rem; padding: .4rem 1rem; }
 .busca-resultados { z-index: 1050; max-height: 320px; overflow-y: auto; }
+/* Dashboard: gráficos em SVG. Cores por papel (série, classe ABC, status), nunca pela posição. */
+:root {
+  --viz-serie-1: #2a78d6; --viz-serie-1-forte: #1c5cab; --viz-serie-2: #eb6834; --viz-serie-3: #1baf7a;
+  --viz-grade: #e1e0d9; --viz-eixo: #c3c2b7; --viz-texto: #6b6a65;
+  --viz-bom: #0ca30c; --viz-alerta: #fab219; --viz-serio: #ec835a; --viz-critico: #d03b3b;
+}
+a.text-decoration-reset { color: inherit; text-decoration: none; }
+a.kpi:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, .14); }
+.viz { width: 100%; height: auto; display: block; overflow: visible; }
+.viz-grade { stroke: var(--viz-grade); stroke-width: 1; }
+.viz-eixo { stroke: var(--viz-eixo); stroke-width: 1; }
+.viz-referencia { stroke: var(--viz-eixo); stroke-width: 1; stroke-dasharray: 4 4; }
+.viz-texto { fill: var(--viz-texto); font-size: 11px; font-variant-numeric: tabular-nums; }
+.viz-alvo { fill: transparent; }
+.viz-barra { fill: var(--viz-serie-1); }
+.viz-marca:hover .viz-barra, .viz-marca:focus .viz-barra { fill: var(--viz-serie-1-forte); }
+.viz-marca:focus, .viz-ponto:focus, .viz-segmento:focus { outline: none; }
+.viz-marca:focus .viz-alvo { fill: rgba(42, 120, 214, .08); }
+.viz-linha { fill: none; stroke-width: 2; stroke-linecap: round; }
+.viz-linha-A, .viz-ponto-A { stroke: var(--viz-serie-1); } .viz-ponto-A { fill: var(--viz-serie-1); }
+.viz-linha-B, .viz-ponto-B { stroke: var(--viz-serie-2); } .viz-ponto-B { fill: var(--viz-serie-2); }
+.viz-linha-C, .viz-ponto-C { stroke: var(--viz-serie-3); } .viz-ponto-C { fill: var(--viz-serie-3); }
+.viz-ponto { stroke: #fff; stroke-width: 2; paint-order: stroke; }
+.viz-ponto:hover, .viz-ponto:focus { r: 6; }
+.viz-legenda { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; color: #52514e; }
+.viz-chave { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: .25rem; }
+.viz-chave-A { background: var(--viz-serie-1); } .viz-chave-B { background: var(--viz-serie-2); } .viz-chave-C { background: var(--viz-serie-3); }
+.viz-classe { border-left: 4px solid; border-radius: .375rem; background: #f8f9f9; padding: .5rem .75rem; height: 100%; }
+.viz-classe-A { border-color: var(--viz-serie-1); } .viz-classe-B { border-color: var(--viz-serie-2); } .viz-classe-C { border-color: var(--viz-serie-3); }
+.viz-rotulo-classe { display: inline-block; min-width: 1.6rem; text-align: center; font-weight: 600; border-left: 3px solid; padding: 0 .3rem; background: #f1f3f3; border-radius: .25rem; }
+.viz-tabela { max-height: 320px; overflow-y: auto; }
+.viz-tabela thead th { position: sticky; top: 0; background: #fff; }
+.viz-status { white-space: nowrap; font-size: .85rem; color: #212529; }
+.viz-status-critico i { color: var(--viz-critico); } .viz-status-serio i { color: var(--viz-serio); }
+.viz-status-alerta i { color: #c98500; } .viz-status-bom i { color: var(--viz-bom); }
+.viz-faixa { border-top: 4px solid; border-radius: .375rem; background: #f8f9f9; padding: .5rem .75rem; height: 100%; }
+.viz-faixa-critico { border-color: var(--viz-critico); } .viz-faixa-serio { border-color: var(--viz-serio); } .viz-faixa-alerta { border-color: var(--viz-alerta); }
+.viz-fundo-critico { background: var(--viz-critico); } .viz-fundo-serio { background: var(--viz-serio); }
+.viz-fundo-alerta { background: var(--viz-alerta); } .viz-fundo-bom { background: var(--viz-bom); }
+.viz-empilhada { display: flex; gap: 2px; height: 22px; border-radius: 4px; overflow: hidden; background: #f1f3f3; }
+.viz-segmento { min-width: 4px; }
+.viz-segmento:hover, .viz-segmento:focus { filter: brightness(.9); }
+.viz-medidor { height: 6px; background: #eceeee; border-radius: 3px; overflow: hidden; margin-top: .3rem; }
+.viz-medidor > div { height: 100%; border-radius: 3px; }
+.viz-hero { font-size: 2rem; font-weight: 600; line-height: 1.1; color: var(--exata-escuro); }
+.viz-mini { background: #f8f9f9; border-radius: .375rem; padding: .5rem .75rem; height: 100%; }
+.viz-dica { position: fixed; z-index: 1080; pointer-events: none; background: #1f2626; color: #fff; font-size: .8rem;
+  padding: .3rem .55rem; border-radius: .3rem; max-width: 320px; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); }
+@media print { .viz-tabela { max-height: none; overflow: visible; } details:not([open]) > :not(summary) { display: none; } }
