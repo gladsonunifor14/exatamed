@@ -234,6 +234,22 @@ especial** e se há **conflito com as alergias** do paciente.
 
 ![Tela de dispensação](img/dispensacao.png)
 
+### Dispensação com data retroativa
+
+O campo **Data e hora da dispensação** vem com o momento atual. Para lançar uma dispensação que
+aconteceu antes (por exemplo, feita durante uma queda do sistema ou registrada no plantão
+seguinte), altere a data e a hora para quando o item foi entregue.
+
+- **Data futura não é aceita**: nem o campo nem o sistema permitem.
+- A baixa segue o PEPS **daquela data**: só saem lotes que já tinham dado entrada e que estavam
+  dentro da validade naquele momento. Um lote que entrou depois não é usado.
+- O número da dispensação segue o ano da data informada (uma dispensação de 30/12 lançada em
+  janeiro recebe o número do ano anterior).
+- O comprovante mostra **Lançamento retroativo** e a data e hora em que o registro foi feito, e
+  os relatórios (consumo, escrituração de controlados, dashboard) usam a data informada.
+
+![Data e hora da dispensação](img/dispensacao_retroativa.png)
+
 ### Quando a dispensação é bloqueada
 
 | Mensagem | O que fazer |

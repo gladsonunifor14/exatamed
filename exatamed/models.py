@@ -1,6 +1,6 @@
 """Modelos de dados do ExataMed."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -327,6 +327,10 @@ class Lote(db.Model):
         return (self.validade - date.today()).days
 
 
+# Diferença entre a data informada e o registro a partir da qual a dispensação é retroativa.
+TOLERANCIA_RETROATIVA = timedelta(minutes=10)
+
+
 class Dispensacao(TimestampMixin, db.Model):
     __tablename__ = "dispensacoes"
     # Numeração sequencial reiniciada a cada ano: 00001/2026, 00002/2026...
@@ -374,6 +378,11 @@ class Dispensacao(TimestampMixin, db.Model):
         if not devolvido:
             return "Dispensada"
         return "Devolvida integralmente" if devolvido >= dispensado else "Devolução parcial"
+
+    @property
+    def retroativa(self):
+        """Lançada depois do fato: a data informada é anterior ao registro no sistema."""
+        return bool(self.criado_em and self.data and self.criado_em - self.data > TOLERANCIA_RETROATIVA)
 
     @property
     def numero_formatado(self):

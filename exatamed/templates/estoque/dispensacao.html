@@ -21,9 +21,14 @@
       {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
     </select><div class="form-text">Obrigatório para itens de controle especial{% if not current_user.pode(Usuario.FARMACEUTICO) %}, que só o farmacêutico pode dispensar{% endif %}.</div></div>
   <div class="col-md-3"><label class="form-label">Nº da prescrição</label><input class="form-control" name="prescricao" maxlength="50" value="{{ form.prescricao }}"></div>
-  <div class="col-md-4"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(origens, 'origem_id', form.origem_id) }}</div>
-  <div class="col-md-4"><label class="form-label obrigatorio">Local de dispensação</label>{{ select_local(locais, 'destino_id', form.destino_id) }}</div>
-  <div class="col-md-4"><label class="form-label">Responsável</label><input class="form-control" value="{{ current_user.nome }}" disabled></div>
+  <div class="col-md-3"><label class="form-label obrigatorio">Farmácia de origem</label>{{ select_local(origens, 'origem_id', form.origem_id) }}</div>
+  <div class="col-md-3"><label class="form-label obrigatorio">Local de dispensação</label>{{ select_local(locais, 'destino_id', form.destino_id) }}</div>
+  <div class="col-md-3"><label class="form-label obrigatorio" for="data_dispensacao">Data e hora da dispensação</label>
+    <input class="form-control" type="datetime-local" id="data_dispensacao" name="data_dispensacao" required
+      value="{{ form.data_dispensacao or agora_campo }}" max="{{ agora_campo }}">
+    <input type="hidden" name="data_sugerida" value="{{ form.data_sugerida or agora_campo }}">
+    <div class="form-text">Altere só para lançamento retroativo. Data futura não é aceita.</div></div>
+  <div class="col-md-3"><label class="form-label">Responsável</label><input class="form-control" value="{{ current_user.nome }}" disabled></div>
 
   <div class="col-12"><h2 class="h6 secao-form">Itens</h2>
     <table class="table table-sm align-middle" id="itens">
