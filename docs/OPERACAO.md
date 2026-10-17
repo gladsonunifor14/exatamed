@@ -111,6 +111,23 @@ Nunca use dados reais fora da produção. Restaure o backup num banco separado e
 EXATAMED_ENV=development EXATAMED_DATABASE_URL=<banco-da-copia> flask --app exatamed anonimizar-banco --confirmar
 ```
 
+### Migração de dados em SQL
+
+Para levar os dados a outra instalação (ou a outro tipo de banco), o sistema gera um arquivo
+`.sql` só com `INSERT`, varrendo todas as tabelas:
+
+```bash
+flask --app exatamed exportar-sql --saida exatamed_dados.sql              # mesmo tipo de banco
+flask --app exatamed exportar-sql --dialeto sqlite --saida dados.sql      # outro tipo de banco
+flask --app exatamed exportar-sql --anonimizar --saida dados_anon.sql     # sem dados pessoais
+```
+
+No destino, inicie o ExataMed uma vez (cria as tabelas) e carregue o arquivo com
+`psql -v ON_ERROR_STOP=1 -f`, `sqlite3 <` ou `flask --app exatamed importar-sql arquivo.sql --confirmar`;
+depois rode `verificar-integridade`. Use a mesma `EXATAMED_CHAVE_AUDITORIA` da origem. Para backup
+do PostgreSQL, prefira `pg_dump`; a exportação SQL é para migração. Detalhes em
+[migracoes/README.md](../migracoes/README.md).
+
 ## 7. Incidentes comuns
 
 | Sintoma | Causa provável | Ação |

@@ -381,6 +381,13 @@ e inicie com:
 gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
 ```
 
+## Migração de dados (SQL)
+
+`flask --app exatamed exportar-sql` varre todas as tabelas e gera um arquivo `.sql` com os
+`INSERT` dos dados (PostgreSQL ou SQLite, com opção `--anonimizar`), e
+`flask --app exatamed importar-sql arquivo.sql --confirmar` o carrega num banco novo. A pasta
+[migracoes/](migracoes/README.md) traz os dados de demonstração nesse formato.
+
 ## Testes
 
 ```bash

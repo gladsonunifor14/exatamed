@@ -377,6 +377,40 @@ def create_app(config=None):
         click.echo(f"Banco anonimizado: {totais['pacientes']} paciente(s), {totais['medicos']} médico(s) e "
                    f"{totais['usuarios']} usuário(s). Logins e senhas foram mantidos.")
 
+    @app.cli.command("exportar-sql")
+    @click.option("--saida", default="exatamed_dados.sql", show_default=True, help="Arquivo .sql a gerar.")
+    @click.option("--dialeto", type=click.Choice(["postgresql", "sqlite"]),
+                  help="Banco de destino (padrão: o mesmo do banco atual).")
+    @click.option("--anonimizar", is_flag=True, help="Anonimiza os dados pessoais no arquivo (o banco não muda).")
+    @click.option("--sem-limpar", is_flag=True, help="Não inclui os DELETE que esvaziam as tabelas de destino.")
+    def exportar_sql_cmd(saida, dialeto, anonimizar, sem_limpar):
+        """Varre todas as tabelas e gera um arquivo .sql com os INSERT dos dados (migração)."""
+        from .exportacao import exportar_sql
+        with open(saida, "w", encoding="utf-8") as arquivo:
+            contagem = exportar_sql(arquivo, dialeto=dialeto, anonimizar=anonimizar, limpar=not sem_limpar,
+                                    versao=__version__)
+        for tabela, total in contagem.items():
+            click.echo(f"  {tabela:<22} {total:>7} registro(s)")
+        click.echo(f"Arquivo gerado: {saida} ({sum(contagem.values())} registros).")
+        if not anonimizar:
+            click.echo("ATENÇÃO: o arquivo contém dados pessoais (LGPD). Guarde-o em local seguro e não o publique; "
+                       "use --anonimizar para uma cópia de testes.")
+
+    @app.cli.command("importar-sql")
+    @click.argument("arquivo", type=click.Path(exists=True, dir_okay=False))
+    @click.option("--confirmar", is_flag=True, help="Confirma a substituição dos dados do banco atual.")
+    def importar_sql_cmd(arquivo, confirmar):
+        """Carrega um arquivo gerado por exportar-sql (substitui os dados do banco atual)."""
+        from .exportacao import contar_linhas, importar_sql
+        if not confirmar:
+            raise click.ClickException("O arquivo apaga os dados atuais antes de inserir. Faça backup e repita "
+                                       "com --confirmar.")
+        with open(arquivo, encoding="utf-8") as entrada:
+            importar_sql(entrada.read())
+        for tabela, total in contar_linhas().items():
+            click.echo(f"  {tabela:<22} {total:>7} registro(s)")
+        click.echo("Importação concluída. Confira com: flask --app exatamed verificar-integridade")
+
     @app.cli.command("criar-admin")
     @click.option("--login", prompt="Login")
     @click.option("--nome", prompt="Nome completo")
