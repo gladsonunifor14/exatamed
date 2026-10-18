@@ -77,11 +77,14 @@ def saldo(produto_id, localizacao_id=None):
     return consulta.scalar()
 
 
-def lotes_peps(produto_id, localizacao_id, incluir_vencidos=False, travar=False):
+def lotes_peps(produto_id, localizacao_id, incluir_vencidos=False, travar=False, referencia=None):
     """Lotes com saldo na ordem PEPS (primeiro que entra, primeiro que sai).
 
     Com `travar`, as linhas ficam bloqueadas (SELECT ... FOR UPDATE no PostgreSQL)
     até o fim da transação, serializando baixas simultâneas do mesmo produto.
+
+    `referencia` (data e hora de uma baixa retroativa): só entram os lotes que já estavam
+    em estoque nesse momento e que estavam dentro da validade naquela data.
     """
     consulta = Lote.query.filter(
         Lote.produto_id == produto_id,
@@ -89,11 +92,24 @@ def lotes_peps(produto_id, localizacao_id, incluir_vencidos=False, travar=False)
         Lote.saldo > 0,
         Lote.bloqueado.is_(False),
     )
+    if referencia is not None:
+        consulta = consulta.filter(Lote.data_entrada <= referencia)
     if not incluir_vencidos:
-        consulta = consulta.filter(Lote.validade >= date.today())
+        consulta = consulta.filter(Lote.validade >= (referencia.date() if referencia else date.today()))
     if travar:
         consulta = consulta.with_for_update()
     return consulta.order_by(Lote.data_entrada, Lote.id).all()
+
+
+def _retroativa(data):
+    """Data de referência para a escolha dos lotes: só quando a baixa é lançada no passado."""
+    return data if data is not None and data < datetime.now() else None
+
+
+def _descricao_disponivel(data):
+    if _retroativa(data):
+        return f"lotes que já estavam em estoque e dentro da validade em {data:%d/%m/%Y %H:%M}, não bloqueados"
+    return "não vencido nem bloqueado"
 
 
 def registrar_entrada(produto, localizacao, numero_lote, validade, quantidade, custo_unitario,
@@ -141,12 +157,12 @@ def baixar_peps(produto, localizacao, quantidade, tipo, data=None, destino=None,
     quantidade = _quantidade(quantidade)
     if quantidade <= 0:
         raise EstoqueError("A quantidade deve ser maior que zero.")
-    lotes = lotes_peps(produto.id, localizacao.id, travar=True)
+    lotes = lotes_peps(produto.id, localizacao.id, travar=True, referencia=_retroativa(data))
     disponivel = sum((l.saldo for l in lotes), ZERO)
     if disponivel < quantidade:
         raise EstoqueError(
             f"Saldo insuficiente de '{produto}' em {localizacao}: "
-            f"disponível {formatar(disponivel)} {produto.unidade_medida} (não vencido nem bloqueado), "
+            f"disponível {formatar(disponivel)} {produto.unidade_medida} ({_descricao_disponivel(data)}), "
             f"solicitado {formatar(quantidade)}."
         )
     data = data or datetime.now()
@@ -229,6 +245,9 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
     """
     if not itens:
         raise EstoqueError("Inclua ao menos um item na dispensação.")
+    if data is not None and data > datetime.now():
+        raise EstoqueError("A data da dispensação não pode ser futura. Para lançamento retroativo, "
+                           "informe uma data e hora já passadas.")
     if not origem.principal:
         raise EstoqueError("A dispensação só pode sair da Farmácia SUS ou da Farmácia Particular.")
     if origem.id == destino.id:
@@ -250,11 +269,11 @@ def dispensar(paciente, origem, destino, itens, medico=None, prescricao=None,
             raise EstoqueError(f"A quantidade de '{produto}' deve ser maior que zero.")
         necessidade[produto] = necessidade.get(produto, ZERO) + quantidade
     for produto, quantidade in necessidade.items():
-        disponivel = sum((l.saldo for l in lotes_peps(produto.id, origem.id)), ZERO)
+        disponivel = sum((l.saldo for l in lotes_peps(produto.id, origem.id, referencia=_retroativa(data))), ZERO)
         if disponivel < quantidade:
             raise EstoqueError(
                 f"Saldo insuficiente de '{produto}' em {origem}: disponível {formatar(disponivel)} "
-                f"{produto.unidade_medida} (não vencido nem bloqueado), solicitado {formatar(quantidade)}."
+                f"{produto.unidade_medida} ({_descricao_disponivel(data)}), solicitado {formatar(quantidade)}."
             )
     if conflitos and not confirmar_alergia:
         detalhes = "; ".join(f"{p}: {', '.join(a)}" for p, a in conflitos.items())

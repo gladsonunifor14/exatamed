@@ -59,7 +59,8 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 - **Classificação automática do controle especial** pelo princípio ativo (listas da Portaria
   344/98, antimicrobianos e agonistas GLP-1 da RDC 471/2021), conferida pelo farmacêutico.
 - **Entradas** (nota fiscal/empenho), **saídas avulsas** (consumo de setor, perdas, avarias),
-  **transferências entre locais** e **dispensação ao paciente**.
+  **transferências entre locais** e **dispensação ao paciente** (com lançamento retroativo, nunca
+  em data futura, e baixa PEPS pelos lotes existentes naquela data).
 - Baixa automática pelo método **PEPS**, sem consumir lotes vencidos ou bloqueados, com
   **valores decimais exatos** e baixa atômica (o saldo nunca fica negativo, mesmo com operações simultâneas).
 - **Devolução e estorno de dispensação** (total ou parcial) ao mesmo lote e custo, sem apagar o original.
@@ -379,6 +380,13 @@ e inicie com:
 ```bash
 gunicorn --preload --workers 2 --bind 0.0.0.0:$PORT "exatamed:create_app()"
 ```
+
+## Migração de dados (SQL)
+
+`flask --app exatamed exportar-sql` varre todas as tabelas e gera um arquivo `.sql` com os
+`INSERT` dos dados (PostgreSQL ou SQLite, com opção `--anonimizar`), e
+`flask --app exatamed importar-sql arquivo.sql --confirmar` o carrega num banco novo. A pasta
+[migracoes/](migracoes/README.md) traz os dados de demonstração nesse formato.
 
 ## Testes
 

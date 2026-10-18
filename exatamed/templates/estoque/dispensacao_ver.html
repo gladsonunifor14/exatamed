@@ -12,7 +12,8 @@
   </div>
 </div>
 <div class="card mb-3"><div class="card-body row g-2">
-  <div class="col-md-4"><strong>Data:</strong> {{ d.data|data('%d/%m/%Y %H:%M') }}</div>
+  <div class="col-md-4"><strong>Data:</strong> {{ d.data|data('%d/%m/%Y %H:%M') }}
+    {% if d.retroativa %}<div class="small text-warning-emphasis"><i class="bi bi-clock-history"></i> Lançamento retroativo, registrado em {{ d.criado_em|data('%d/%m/%Y %H:%M') }}</div>{% endif %}</div>
   <div class="col-md-4"><strong>Paciente:</strong> {{ d.paciente.nome }}{% if d.paciente.idade is not none %} ({{ d.paciente.idade }} anos){% endif %}</div>
   <div class="col-md-4"><strong>Cartão SUS / plano:</strong> {{ d.paciente.cartao_sus or '—' }} / {{ d.paciente.plano_saude or 'SUS' }}</div>
   <div class="col-md-4"><strong>Médico:</strong> {{ d.medico or '—' }}</div>

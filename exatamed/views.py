@@ -328,7 +328,26 @@ def _registrar_dispensacao():
         responsavel=current_user.nome[:Dispensacao.responsavel.type.length],
         # Só o farmacêutico pode liberar uma dispensação com alerta de alergia.
         confirmar_alergia=farmaceutico and bool(request.form.get("confirmar_alergia")),
+        data=_data_dispensacao(),
     )
+
+
+FORMATO_DATA_HORA = "%Y-%m-%dT%H:%M"
+
+
+def _data_dispensacao():
+    """Data e hora informadas na dispensação (None = agora).
+
+    O campo vem preenchido com a hora em que a tela foi aberta; se não foi alterado, vale o
+    momento do registro. Data futura é recusada em `estoque.dispensar`.
+    """
+    texto = (request.form.get("data_dispensacao") or "").strip()
+    if not texto or texto == request.form.get("data_sugerida"):
+        return None
+    try:
+        return datetime.strptime(texto, FORMATO_DATA_HORA)
+    except ValueError:
+        raise EstoqueError("Data e hora da dispensação inválidas.") from None
 
 
 @bp_estoque.route("/dispensacao", methods=["GET", "POST"])
@@ -361,6 +380,7 @@ def dispensacao():
     contexto["origens"] = [l for l in contexto["locais"] if l.principal]
     paciente_id = request.form.get("paciente_id", type=int)
     contexto["paciente_selecionado"] = db.session.get(Paciente, paciente_id) if paciente_id else None
+    contexto["agora_campo"] = datetime.now().strftime(FORMATO_DATA_HORA)
     return render_template("estoque/dispensacao.html", alerta=alerta, form=request.form, **contexto)
 
 

@@ -3,6 +3,17 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.4.0] — 2026-10-17
+
+### Adicionado
+- Data e hora da dispensação, para lançamento retroativo. Data futura é recusada (no campo e no
+  servidor). A baixa PEPS usa só os lotes que já estavam em estoque e dentro da validade na data
+  informada; a numeração segue o ano dessa data.
+- O comprovante indica o lançamento retroativo e quando o registro foi feito.
+- Comandos `exportar-sql` e `importar-sql`: arquivo `.sql` com os `INSERT` de todas as tabelas,
+  na ordem das chaves estrangeiras, com os mesmos ids e os selos da auditoria preservados
+  (PostgreSQL ou SQLite; opção `--anonimizar`). Pasta `migracoes/` com os dados de demonstração.
+
 ## [2.3.0] — 2026-10-15
 
 ### Adicionado
