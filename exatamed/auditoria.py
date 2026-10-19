@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from .auth import perfil_requerido
 from .models import (
+    AlteracaoAuditoria,
     CadeiaAuditoria,
     Dispensacao,
     Localizacao,
@@ -60,6 +61,11 @@ CADEIAS = {
     "registros_auditoria": (RegistroAuditoria, ["id", "data", "usuario_id", "acao", "entidade",
                                                 "registro_id", "alteracoes", "ip"]),
 }
+# Campos selados que não são colunas da tabela: calculados a partir de tabelas relacionadas.
+# As alterações de cada registro de auditoria ficam em alteracoes_auditoria (uma linha por campo);
+# o selo cobre o JSON canônico {campo: [antes, depois]} montado a partir delas, que é exatamente o
+# texto guardado na antiga coluna "alteracoes". Assim os selos do histórico continuam válidos.
+CAMPOS_CALCULADOS = {"registros_auditoria": {"alteracoes"}}
 NOMES_CADEIAS = {"movimentacoes": "Movimentações de estoque", "registros_acesso": "Acessos a dados pessoais",
                  "registros_auditoria": "Trilha de auditoria"}
 
@@ -80,6 +86,26 @@ ENTIDADES = {nome: modelo.__name__ for modelo, (nome, _) in AUDITADOS.items()}
 IGNORADOS = {"criado_em", "atualizado_em", "ultimo_acesso", "tentativas_falhas", "ocultar_primeiros_passos",
              "seq_cadeia", "hash", "id", "xml"}
 DADO_PESSOAL = "(dado pessoal)"
+
+
+def _ao_definir(_alvo, _valor, _anterior, _iniciador):
+    """Ouvinte vazio: existe só para ligar o histórico ativo do atributo (ver abaixo)."""
+
+
+def _ativar_historico_completo():
+    """Garante o valor anterior ("antes") na trilha mesmo quando o objeto foi expirado por um commit.
+
+    Sem isso, ao alterar um atributo que ainda não foi recarregado, o histórico do SQLAlchemy não
+    conhece o valor antigo e a trilha gravaria "antes" vazio. Com o histórico ativo, o valor antigo
+    é carregado do banco no momento da alteração (uma consulta só quando o atributo está expirado).
+    """
+    for modelo in AUDITADOS:
+        for atributo in db.inspect(modelo).column_attrs:
+            if atributo.key not in IGNORADOS:
+                event.listen(getattr(modelo, atributo.key), "set", _ao_definir, active_history=True)
+
+
+_ativar_historico_completo()
 
 
 # --------------------------------------------------------------------------- assinatura
@@ -105,6 +131,38 @@ def assinatura(anterior, seq, valores, chave=None):
     return hmac.new(chave or _chave(), conteudo.encode(), hashlib.sha256).hexdigest()
 
 
+def texto_alteracoes(alteracoes):
+    """Forma canônica das alterações de um registro: a que entra no selo."""
+    return json.dumps(alteracoes, ensure_ascii=False, sort_keys=True)
+
+
+def conteudo_alteracoes(executor, ids):
+    """{id do registro de auditoria: JSON canônico das alterações}, lido de alteracoes_auditoria."""
+    tabela = AlteracaoAuditoria.__table__
+    por_registro = {id_: {} for id_ in ids}
+    ids = list(ids)
+    for inicio in range(0, len(ids), 500):
+        consulta = db.select(tabela.c.registro_auditoria_id, tabela.c.campo, tabela.c.valor_anterior,
+                             tabela.c.valor_novo).where(tabela.c.registro_auditoria_id.in_(ids[inicio:inicio + 500]))
+        for registro_id, campo, antes, depois in executor.execute(consulta):
+            por_registro[registro_id][campo] = [antes, depois]
+    return {id_: texto_alteracoes(alteracoes) for id_, alteracoes in por_registro.items()}
+
+
+def _colunas_seladas(nome):
+    modelo, campos = CADEIAS[nome]
+    calculados = CAMPOS_CALCULADOS.get(nome, set())
+    return [modelo.__table__.c[c] for c in campos if c not in calculados]
+
+
+def _valores_selados(executor, nome, linhas):
+    """Valores que entram no selo, na ordem de CADEIAS, para linhas lidas com _colunas_seladas."""
+    _, campos = CADEIAS[nome]
+    calculados = CAMPOS_CALCULADOS.get(nome, set())
+    extras = conteudo_alteracoes(executor, [linha.id for linha in linhas]) if calculados else {}
+    return [[extras[linha.id] if c in calculados else getattr(linha, c) for c in campos] for linha in linhas]
+
+
 def _selar(conexao, nome, ids):
     """Sela os registros indicados, em ordem, sob trava da linha da cadeia."""
     if not ids:
@@ -118,11 +176,12 @@ def _selar(conexao, nome, ids):
         seq, anterior = 0, ""
     else:
         seq, anterior = elo
-    for id_ in sorted(ids):
-        linha = conexao.execute(db.select(*[tabela.c[c] for c in campos]).where(tabela.c.id == id_)).one()
+    linhas = conexao.execute(db.select(*_colunas_seladas(nome)).where(tabela.c.id.in_(ids))
+                             .order_by(tabela.c.id)).all()
+    for linha, valores in zip(linhas, _valores_selados(conexao, nome, linhas)):
         seq += 1
-        anterior = assinatura(anterior, seq, linha)
-        conexao.execute(db.update(tabela).where(tabela.c.id == id_).values(seq_cadeia=seq, hash=anterior))
+        anterior = assinatura(anterior, seq, valores)
+        conexao.execute(db.update(tabela).where(tabela.c.id == linha.id).values(seq_cadeia=seq, hash=anterior))
     conexao.execute(db.update(cadeias).where(cadeias.c.nome == nome)
                     .values(ultimo_seq=seq, ultimo_hash=anterior))
 
@@ -206,14 +265,18 @@ def _apos_gravar(session, _contexto):
             alteracoes = _alteracoes(obj, config[1], acao)
             if acao == RegistroAuditoria.ALTERACAO and not alteracoes:
                 continue
-            registros.append(dict(data=datetime.now(), usuario_id=usuario_id, acao=acao, entidade=config[0],
-                                  registro_id=obj.id, ip=ip,
-                                  alteracoes=json.dumps(alteracoes, ensure_ascii=False, sort_keys=True)))
+            registros.append((dict(data=datetime.now(), usuario_id=usuario_id, acao=acao, entidade=config[0],
+                                   registro_id=obj.id, ip=ip), alteracoes))
     conexao = session.connection()
     ids_auditoria = []
-    tabela = RegistroAuditoria.__table__
-    for registro in registros:
-        ids_auditoria.append(conexao.execute(db.insert(tabela).values(**registro).returning(tabela.c.id)).scalar())
+    tabela, tabela_itens = RegistroAuditoria.__table__, AlteracaoAuditoria.__table__
+    for registro, alteracoes in registros:
+        id_ = conexao.execute(db.insert(tabela).values(**registro).returning(tabela.c.id)).scalar()
+        if alteracoes:
+            conexao.execute(db.insert(tabela_itens), [
+                {"registro_auditoria_id": id_, "campo": campo, "valor_anterior": antes, "valor_novo": depois}
+                for campo, (antes, depois) in alteracoes.items()])
+        ids_auditoria.append(id_)
     novos = {nome: [obj.id for obj in session.new if isinstance(obj, modelo)]
              for nome, (modelo, _) in CADEIAS.items()}
     novos["registros_auditoria"] += ids_auditoria
@@ -232,10 +295,10 @@ def verificar_cadeia(nome, chave=None):
         problemas.append(f"{len(sem_selo)} registro(s) gravado(s) fora da aplicação, sem selo "
                          f"(ids {', '.join(map(str, sem_selo[:10]))}{'...' if len(sem_selo) > 10 else ''}).")
     anterior, esperado, total, ultimo_seq = "", 1, 0, 0
-    consulta = db.select(tabela.c.seq_cadeia, tabela.c.hash, *[tabela.c[c] for c in campos]) \
+    consulta = db.select(tabela.c.seq_cadeia, tabela.c.hash, *_colunas_seladas(nome)) \
         .where(tabela.c.seq_cadeia.isnot(None)).order_by(tabela.c.seq_cadeia)
-    for linha in db.session.execute(consulta).yield_per(1000):
-        seq, selo, valores = linha[0], linha[1], linha[2:]
+    for linha, valores in _em_blocos(nome, db.session.execute(consulta).yield_per(1000)):
+        seq, selo = linha.seq_cadeia, linha.hash
         total += 1
         if seq != esperado:
             problemas.append(f"Sequência interrompida: esperado nº {esperado}, encontrado nº {seq} "
@@ -253,6 +316,18 @@ def verificar_cadeia(nome, chave=None):
                          f"existente (nº {ultimo_seq}): registros finais removidos ou cadeia substituída.")
     return {"nome": nome, "descricao": NOMES_CADEIAS[nome], "total": total, "problemas": problemas,
             "ok": not problemas}
+
+
+def _em_blocos(nome, resultado, tamanho=1000):
+    """Percorre as linhas seladas com os valores do selo, buscando os campos calculados por bloco."""
+    bloco = []
+    for linha in resultado:
+        bloco.append(linha)
+        if len(bloco) == tamanho:
+            yield from zip(bloco, _valores_selados(db.session, nome, bloco))
+            bloco = []
+    if bloco:
+        yield from zip(bloco, _valores_selados(db.session, nome, bloco))
 
 
 def conciliar_lotes():

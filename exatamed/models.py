@@ -573,11 +573,13 @@ class RegistroAuditoria(SeladoMixin, db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), index=True)
     acao = db.Column(db.String(20), nullable=False)
     entidade = db.Column(db.String(40), nullable=False, index=True)
-    registro_id = db.Column(db.Integer, index=True)
-    alteracoes = db.Column(db.Text)  # JSON: {campo: [antes, depois]}
+    registro_id = db.Column(db.Integer, index=True)  # id do registro auditado (na tabela da entidade)
     ip = db.Column(db.String(45))
 
     usuario = db.relationship("Usuario")
+    # Campos alterados, um por linha (antes guardados como texto JSON na coluna "alteracoes").
+    itens = db.relationship("AlteracaoAuditoria", back_populates="registro", order_by="AlteracaoAuditoria.campo",
+                            lazy="selectin", cascade="all, delete-orphan")
 
     @property
     def acao_descricao(self):
@@ -585,8 +587,29 @@ class RegistroAuditoria(SeladoMixin, db.Model):
 
     @property
     def alteracoes_dict(self):
-        import json
-        return json.loads(self.alteracoes) if self.alteracoes else {}
+        """{campo: [antes, depois]}, em ordem alfabética do campo."""
+        return {item.campo: [item.valor_anterior, item.valor_novo] for item in self.itens}
+
+
+class AlteracaoAuditoria(db.Model):
+    """Um campo alterado num registro da trilha de auditoria (valor de antes e de depois).
+
+    Os valores são guardados como texto normalizado ("" quando vazio) e entram no selo do
+    registro de auditoria: o conteúdo selado é o JSON canônico {campo: [antes, depois]}
+    montado a partir destas linhas (ver auditoria.conteudo_alteracoes).
+    """
+
+    __tablename__ = "alteracoes_auditoria"
+    __table_args__ = (db.UniqueConstraint("registro_auditoria_id", "campo", name="uq_alteracao_auditoria_campo"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    registro_auditoria_id = db.Column(db.Integer, db.ForeignKey("registros_auditoria.id", ondelete="CASCADE"),
+                                      nullable=False, index=True)
+    campo = db.Column(db.String(80), nullable=False)
+    valor_anterior = db.Column(db.Text, nullable=False, default="")
+    valor_novo = db.Column(db.Text, nullable=False, default="")
+
+    registro = db.relationship("RegistroAuditoria", back_populates="itens")
 
 
 class CadeiaAuditoria(db.Model):

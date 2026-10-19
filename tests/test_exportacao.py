@@ -7,7 +7,17 @@ from sqlalchemy import select
 from exatamed import auditoria
 from exatamed.demo import criar_usuarios_demo, popular
 from exatamed.exportacao import exportar_sql, importar_sql, tabelas_exportadas
-from exatamed.models import Localizacao, NotaFiscal, Paciente, Produto, RegistroAcesso, TentativaLogin, Usuario, db
+from exatamed.models import (
+    Localizacao,
+    NotaFiscal,
+    Paciente,
+    Produto,
+    RegistroAcesso,
+    RegistroAuditoria,
+    TentativaLogin,
+    Usuario,
+    db,
+)
 
 TEXTO_DIFICIL = "O'Brien 0,9% \\ teste; DELETE FROM x;\nsegunda linha – ação"
 
@@ -107,3 +117,47 @@ def test_comandos(app, dados, tmp_path):
     resultado = executor.invoke(args=["importar-sql", str(arquivo), "--confirmar"])
     assert resultado.exit_code == 0 and "Importação concluída" in resultado.output
     assert Paciente.query.count() == 3 and date.today()
+
+
+def _arquivo_24(monkeypatch):
+    """Arquivo no formato da versão 2.4: alterações da trilha em texto, sem a tabela alteracoes_auditoria.
+
+    A coluna antiga é recriada e preenchida só durante a exportação; depois o banco volta ao formato atual.
+    """
+    from sqlalchemy import MetaData, Table, text
+
+    from exatamed import exportacao
+    from exatamed.auditoria import conteudo_alteracoes
+
+    ids = [r.id for r in RegistroAuditoria.query]
+    textos = conteudo_alteracoes(db.session, ids)
+    db.session.remove()
+    with db.engine.begin() as conexao:
+        conexao.execute(text("ALTER TABLE registros_auditoria ADD COLUMN alteracoes TEXT"))
+        for id_, texto in textos.items():
+            conexao.execute(text("UPDATE registros_auditoria SET alteracoes = :t WHERE id = :i"),
+                            {"t": texto, "i": id_})
+    antiga = Table("registros_auditoria", MetaData(), autoload_with=db.engine)
+    atuais = exportacao.tabelas_exportadas
+    monkeypatch.setattr(exportacao, "tabelas_exportadas", lambda anonimizar=False: [
+        antiga if t.name == "registros_auditoria" else t for t in atuais(anonimizar)
+        if t.name != "alteracoes_auditoria"])
+    sql = _exportar()[0]
+    monkeypatch.setattr(exportacao, "tabelas_exportadas", atuais)
+    db.session.remove()
+    with db.engine.begin() as conexao:
+        conexao.execute(text("ALTER TABLE registros_auditoria DROP COLUMN alteracoes"))
+    return sql
+
+
+def test_importa_arquivo_da_versao_24(dados, monkeypatch):
+    antes = {r.id: r.alteracoes_dict for r in RegistroAuditoria.query}
+    sql = _arquivo_24(monkeypatch)
+    from exatamed.exportacao import FORMATO_ANTIGO
+    assert "alteracoes_auditoria" not in sql and FORMATO_ANTIGO.search(sql)
+    db.session.add(Produto(nome_comercial="Depois da exportação", unidade_medida="UN"))
+    db.session.commit()
+    resumo = importar_sql(sql)
+    assert resumo["coluna_removida"] and not resumo["problemas"]
+    assert {r.id: r.alteracoes_dict for r in RegistroAuditoria.query} == antes
+    assert auditoria.verificar_integridade()["ok"]

@@ -9,6 +9,7 @@ Os selos (HMAC) dependem da EXATAMED_CHAVE_AUDITORIA: o banco de destino precisa
 chave do banco de origem para que a verificação de integridade continue passando.
 """
 
+import re
 from datetime import datetime
 
 from sqlalchemy import Integer, select, text
@@ -143,9 +144,11 @@ def exportar_sql(saida, dialeto=None, anonimizar=False, limpar=True, versao=""):
     return contagem
 
 
-def importar_sql(conteudo):
-    """Executa um arquivo gerado por `exportar_sql` no banco configurado, numa transação."""
-    db.session.remove()  # libera as travas da sessão antes dos DELETE do script
+# Arquivos exportados até a versão 2.4 trazem as alterações da trilha na coluna de texto "alteracoes".
+FORMATO_ANTIGO = re.compile(r"INSERT INTO registros_auditoria \([^)]*\balteracoes\b")
+
+
+def _executar_script(conteudo):
     conexao = db.engine.raw_connection()
     try:
         cursor = conexao.cursor()
@@ -160,7 +163,36 @@ def importar_sql(conteudo):
         raise
     finally:
         conexao.close()
+
+
+def importar_sql(conteudo):
+    """Executa um arquivo gerado por `exportar_sql` no banco configurado, numa transação.
+
+    Um arquivo da versão 2.4 ou anterior (alterações da trilha em texto JSON) é carregado com a
+    coluna antiga recriada temporariamente e, em seguida, migrado para a tabela alteracoes_auditoria.
+    Devolve o resumo dessa migração, ou None para arquivos no formato atual.
+    """
+    from .migracao_auditoria import COLUNA_ANTIGA, TABELA, coluna_antiga_existe, migrar_alteracoes_auditoria
+    db.session.remove()  # libera as travas da sessão antes dos DELETE do script
+    antigo = bool(FORMATO_ANTIGO.search(conteudo))
+    coluna_criada = False
+    if antigo:
+        with db.engine.begin() as conexao:
+            if "\nDELETE FROM registros_auditoria;" in conteudo:
+                # O arquivo antigo não conhece a tabela nova: esvazia-a antes dos DELETE dele.
+                conexao.execute(text("DELETE FROM alteracoes_auditoria"))
+            if not coluna_antiga_existe(conexao):
+                conexao.execute(text(f"ALTER TABLE {TABELA} ADD COLUMN {COLUNA_ANTIGA} TEXT"))
+                coluna_criada = True
+    try:
+        _executar_script(conteudo)
+    except Exception:
+        if coluna_criada:
+            with db.engine.begin() as conexao:
+                conexao.execute(text(f"ALTER TABLE {TABELA} DROP COLUMN {COLUNA_ANTIGA}"))
+        raise
     db.session.expire_all()
+    return migrar_alteracoes_auditoria() if antigo else None
 
 
 def contar_linhas():

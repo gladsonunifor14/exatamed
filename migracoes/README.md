@@ -45,6 +45,12 @@ flask --app exatamed importar-sql exatamed_dados.sql --confirmar    # qualquer u
 
 3. Confira: `flask --app exatamed verificar-integridade`.
 
+Arquivos gerados até a versão 2.4 (alterações da trilha de auditoria em texto, na coluna
+`registros_auditoria.alteracoes`) também podem ser carregados com `importar-sql`: o comando recria a
+coluna temporariamente, carrega o arquivo e transfere as alterações para a tabela
+`alteracoes_auditoria`. Com `psql` ou `sqlite3`, carregue-os num banco da versão 2.4 e atualize o
+sistema depois.
+
 O banco de destino precisa usar a **mesma `EXATAMED_CHAVE_AUDITORIA`** do banco de origem; com outra
 chave, a verificação aponta os registros selados como alterados. O arquivo roda numa transação
 única: se algo falhar, nada é gravado.

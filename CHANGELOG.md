@@ -3,6 +3,28 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.5.0] — 2026-10-19
+
+### Alterado
+- Trilha de auditoria normalizada: as alterações de cada registro saem da coluna de texto JSON
+  `registros_auditoria.alteracoes` para a nova tabela `alteracoes_auditoria` (uma linha por campo,
+  com valor anterior e novo). A coluna antiga é removida.
+- O selo HMAC do registro de auditoria passa a ser calculado sobre o JSON canônico montado a
+  partir das linhas da tabela nova, idêntico ao texto antigo: os selos do histórico continuam
+  válidos sem nova selagem, e alterar uma linha de alteração direto no banco é detectado.
+
+### Migração
+- Automática na inicialização e pelo comando `flask --app exatamed migrar-auditoria`: transfere o
+  histórico conferindo registro a registro e só remove a coluna se todos forem transferidos sem
+  perda (caso contrário mantém a coluna e aponta os ids).
+- `importar-sql` aceita arquivos exportados até a 2.4 e migra as alterações ao carregar.
+
+### Corrigido
+- A trilha de auditoria gravava o valor "antes" vazio quando um cadastro era alterado logo depois
+  de um salvamento, sem ser recarregado. Os atributos dos cadastros auditados passam a usar o
+  histórico ativo do SQLAlchemy: o valor antigo é carregado no momento da alteração. Atribuir o
+  mesmo valor deixa de gerar uma alteração falsa. Registros já gravados não são reescritos.
+
 ## [2.4.0] — 2026-10-17
 
 ### Adicionado

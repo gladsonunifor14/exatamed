@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from exatamed import estoque
 from exatamed.estoque import EstoqueError
-from exatamed.models import Dispensacao, Localizacao, Lote, Paciente, Produto, db
+from exatamed.models import AlteracaoAuditoria, Dispensacao, Localizacao, Lote, Paciente, Produto, db
 
 
 @pytest.fixture
@@ -148,12 +148,46 @@ def test_trilha_registra_antes_e_depois_de_cadastros(client, base):
     assert alteracao.usuario_id == admin.id and alteracao.seq_cadeia
 
 
+def test_trilha_registra_o_antes_de_objeto_expirado(app):
+    # Alterar um objeto logo depois do commit, sem recarregá-lo: o "antes" precisa ser o valor real.
+    produto = Produto(nome_comercial="A", unidade_medida="UN")
+    db.session.add(produto)
+    db.session.commit()
+    produto.estoque_minimo, produto.nome_comercial = 5, "B"
+    db.session.commit()
+    alteracao = _trilha("produto")[-1]
+    assert alteracao.acao == "ALTERACAO"
+    assert alteracao.alteracoes_dict == {"estoque_minimo": ["0.0000", "5"], "nome_comercial": ["A", "B"]}
+    assert auditoria.verificar_integridade()["ok"]
+
+
+def test_mesmo_valor_em_objeto_expirado_nao_gera_alteracao(app):
+    produto = Produto(nome_comercial="A", unidade_medida="UN")
+    db.session.add(produto)
+    db.session.commit()
+    produto.nome_comercial = "A"  # igual ao gravado: não é alteração
+    db.session.commit()
+    assert [r.acao for r in _trilha("produto")] == ["INCLUSAO"]
+
+
+def test_objeto_expirado_com_dado_pessoal(app, base):
+    paciente, nome = base["paciente"], base["paciente"].nome
+    db.session.commit()
+    paciente.nome = nome  # mesmo nome, objeto expirado: nada a registrar
+    db.session.commit()
+    assert [r.acao for r in _trilha("paciente")].count("ALTERACAO") == 0
+    paciente.nome = "Outro Nome"
+    db.session.commit()
+    assert _trilha("paciente")[-1].alteracoes_dict == {"nome": ["(dado pessoal)", "(dado pessoal)"]}
+
+
 def test_trilha_nao_guarda_valores_de_dados_pessoais(client, base):
     paciente = base["paciente"]
     client.post(f"/cadastros/pacientes/{paciente.id}/editar", data={"nome": "Ana Maria", "cpf": "529.982.247-25"})
     alteracao = _trilha("paciente")[-1]
     assert alteracao.alteracoes_dict["nome"] == ["(dado pessoal)", "(dado pessoal)"]
-    assert "Ana Maria" not in alteracao.alteracoes and "529" not in alteracao.alteracoes
+    gravado = " ".join(i.valor_anterior + i.valor_novo for i in AlteracaoAuditoria.query)
+    assert "Ana Maria" not in gravado and "529" not in gravado
 
 
 def test_trilha_registra_mudanca_de_perfil_e_senha_sem_o_hash(client, base):
