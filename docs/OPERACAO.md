@@ -45,6 +45,22 @@ Gere chaves com `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 primeira inicialização. A partir daí, qualquer registro gravado fora da aplicação é apontado
 pela verificação. Defina `EXATAMED_CHAVE_AUDITORIA` **antes** de subir a 2.0.
 
+**Atualização para a 2.5 (trilha de auditoria normalizada):** as alterações de cada registro da
+trilha saem da coluna de texto JSON `registros_auditoria.alteracoes` para a tabela
+`alteracoes_auditoria` (uma linha por campo: `campo`, `valor_anterior`, `valor_novo`). A migração
+roda sozinha na primeira inicialização, numa transação única:
+
+1. transfere cada registro e confere que o conteúdo remontado das linhas novas é **idêntico** ao
+   texto antigo, sobre o qual o selo HMAC foi calculado (os selos do histórico continuam válidos,
+   sem nova selagem);
+2. só então remove a coluna antiga.
+
+Se algum registro não puder ser transferido sem perda (texto inválido ou alterado fora da
+aplicação), os demais são migrados, a coluna é **mantida** para análise, os ids vão para o log e a
+verificação de integridade aponta esses registros. Depois de analisar, rode de novo com
+`flask --app exatamed migrar-auditoria` (também serve para acompanhar a migração manualmente).
+Faça o backup antes, como em toda atualização.
+
 ## 4. Monitoramento
 
 | Sinal | Como obter | Alerta sugerido |

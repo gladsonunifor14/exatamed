@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from exatamed import estoque
 from exatamed.estoque import EstoqueError
-from exatamed.models import Dispensacao, Localizacao, Lote, Paciente, Produto, db
+from exatamed.models import AlteracaoAuditoria, Dispensacao, Localizacao, Lote, Paciente, Produto, db
 
 
 @pytest.fixture
@@ -153,7 +153,8 @@ def test_trilha_nao_guarda_valores_de_dados_pessoais(client, base):
     client.post(f"/cadastros/pacientes/{paciente.id}/editar", data={"nome": "Ana Maria", "cpf": "529.982.247-25"})
     alteracao = _trilha("paciente")[-1]
     assert alteracao.alteracoes_dict["nome"] == ["(dado pessoal)", "(dado pessoal)"]
-    assert "Ana Maria" not in alteracao.alteracoes and "529" not in alteracao.alteracoes
+    gravado = " ".join(i.valor_anterior + i.valor_novo for i in AlteracaoAuditoria.query)
+    assert "Ana Maria" not in gravado and "529" not in gravado
 
 
 def test_trilha_registra_mudanca_de_perfil_e_senha_sem_o_hash(client, base):

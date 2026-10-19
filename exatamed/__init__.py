@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [
@@ -74,6 +74,9 @@ def atualizar_esquema():
             with db.engine.begin() as conexao:
                 conexao.execute(db.text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
     numerar_dispensacoes_antigas()
+    # 2.5: alterações da trilha de auditoria saem da coluna JSON para a tabela alteracoes_auditoria.
+    from .migracao_auditoria import migrar_alteracoes_auditoria
+    migrar_alteracoes_auditoria()
     if db.engine.dialect.name == "postgresql":
         converter_para_decimal()
         criar_restricoes_postgresql()
@@ -377,6 +380,25 @@ def create_app(config=None):
         click.echo(f"Banco anonimizado: {totais['pacientes']} paciente(s), {totais['medicos']} médico(s) e "
                    f"{totais['usuarios']} usuário(s). Logins e senhas foram mantidos.")
 
+    @app.cli.command("migrar-auditoria")
+    def migrar_auditoria_cmd():
+        """Transfere as alterações da trilha de auditoria da coluna JSON para a tabela normalizada."""
+        from .migracao_auditoria import migrar_alteracoes_auditoria
+        resumo = migrar_alteracoes_auditoria()
+        if not resumo["pendente"]:
+            click.echo("Nada a migrar: a trilha de auditoria já está na estrutura normalizada.")
+            return
+        click.echo(f"Registros lidos: {resumo['registros']}; campos transferidos: {resumo['campos']}; "
+                   f"já migrados antes: {resumo['ja_migrados']}.")
+        for id_, motivo in resumo["problemas"][:20]:
+            click.echo(f"  [PROBLEMA] registro id {id_}: {motivo}")
+        if resumo["coluna_removida"]:
+            click.echo("Coluna registros_auditoria.alteracoes removida. Confira: flask --app exatamed "
+                       "verificar-integridade")
+        else:
+            raise click.ClickException("Coluna antiga mantida: há registros que não puderam ser transferidos "
+                                       "sem perda (veja acima).")
+
     @app.cli.command("exportar-sql")
     @click.option("--saida", default="exatamed_dados.sql", show_default=True, help="Arquivo .sql a gerar.")
     @click.option("--dialeto", type=click.Choice(["postgresql", "sqlite"]),
@@ -406,7 +428,12 @@ def create_app(config=None):
             raise click.ClickException("O arquivo apaga os dados atuais antes de inserir. Faça backup e repita "
                                        "com --confirmar.")
         with open(arquivo, encoding="utf-8") as entrada:
-            importar_sql(entrada.read())
+            resumo = importar_sql(entrada.read())
+        if resumo:
+            click.echo(f"Arquivo da versão 2.4 ou anterior: {resumo['campos']} alteração(ões) da trilha de auditoria "
+                       f"transferida(s) para a estrutura normalizada.")
+            for id_, motivo in resumo["problemas"][:20]:
+                click.echo(f"  [PROBLEMA] registro de auditoria id {id_}: {motivo}")
         for tabela, total in contar_linhas().items():
             click.echo(f"  {tabela:<22} {total:>7} registro(s)")
         click.echo("Importação concluída. Confira com: flask --app exatamed verificar-integridade")
