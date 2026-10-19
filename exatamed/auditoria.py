@@ -88,6 +88,26 @@ IGNORADOS = {"criado_em", "atualizado_em", "ultimo_acesso", "tentativas_falhas",
 DADO_PESSOAL = "(dado pessoal)"
 
 
+def _ao_definir(_alvo, _valor, _anterior, _iniciador):
+    """Ouvinte vazio: existe só para ligar o histórico ativo do atributo (ver abaixo)."""
+
+
+def _ativar_historico_completo():
+    """Garante o valor anterior ("antes") na trilha mesmo quando o objeto foi expirado por um commit.
+
+    Sem isso, ao alterar um atributo que ainda não foi recarregado, o histórico do SQLAlchemy não
+    conhece o valor antigo e a trilha gravaria "antes" vazio. Com o histórico ativo, o valor antigo
+    é carregado do banco no momento da alteração (uma consulta só quando o atributo está expirado).
+    """
+    for modelo in AUDITADOS:
+        for atributo in db.inspect(modelo).column_attrs:
+            if atributo.key not in IGNORADOS:
+                event.listen(getattr(modelo, atributo.key), "set", _ao_definir, active_history=True)
+
+
+_ativar_historico_completo()
+
+
 # --------------------------------------------------------------------------- assinatura
 
 def _chave():

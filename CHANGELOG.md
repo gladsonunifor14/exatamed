@@ -19,6 +19,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
   perda (caso contrário mantém a coluna e aponta os ids).
 - `importar-sql` aceita arquivos exportados até a 2.4 e migra as alterações ao carregar.
 
+### Corrigido
+- A trilha de auditoria gravava o valor "antes" vazio quando um cadastro era alterado logo depois
+  de um salvamento, sem ser recarregado. Os atributos dos cadastros auditados passam a usar o
+  histórico ativo do SQLAlchemy: o valor antigo é carregado no momento da alteração. Atribuir o
+  mesmo valor deixa de gerar uma alteração falsa. Registros já gravados não são reescritos.
+
 ## [2.4.0] — 2026-10-17
 
 ### Adicionado

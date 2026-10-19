@@ -25,7 +25,6 @@ def legado(app):
     produto = Produto(nome_comercial='Soro "fisiológico" 0,9%', unidade_medida="FR")
     db.session.add_all([produto, Paciente(nome="Ana Souza", cpf="529.982.247-25"), Localizacao(nome="UTI")])
     db.session.commit()
-    db.session.refresh(produto)  # como na tela de cadastro, que carrega o registro antes de alterar
     produto.estoque_minimo, produto.nome_comercial = 5, "Soro – ação"
     db.session.commit()
     db.session.delete(Localizacao.query.filter_by(nome="UTI").one())
