@@ -91,6 +91,73 @@ def consumo_diario(inicio, fim, localizacao_id=None):
     return [dias, produtos]
 
 
+def saidas_avulsas(inicio, fim, localizacao_id=None):
+    """Saídas avulsas (consumo de setor, perdas, avarias, vencimentos...) do período.
+
+    Cada saída aparece por lote baixado (PEPS). Saídas estornadas continuam listadas, marcadas, mas
+    ficam fora dos totais e dos resumos.
+    """
+    from .dashboard import categoria_perda  # o dashboard importa este módulo
+
+    ini, fim_ = _periodo(inicio, fim)
+    consulta = Movimentacao.query.filter(Movimentacao.tipo == Movimentacao.SAIDA,
+                                         Movimentacao.data.between(ini, fim_))
+    if localizacao_id:
+        consulta = consulta.filter(Movimentacao.localizacao_id == localizacao_id)
+    saidas = consulta.order_by(Movimentacao.data, Movimentacao.id).all()
+    estornos = dict(db.session.query(Movimentacao.origem_id, Movimentacao.data).filter(
+        Movimentacao.tipo == Movimentacao.ESTORNO_SAIDA,
+        Movimentacao.origem_id.in_([m.id for m in saidas]))) if saidas else {}
+
+    detalhe = Tabela("Saídas avulsas do período", [
+        Coluna("Data/hora"), Coluna("Produto"), Coluna("Lote"), Coluna("Validade", "data"), Coluna("Local"),
+        Coluna("Quantidade", "numero"), Coluna("Unid."), Coluna("Custo unitário", "moeda"),
+        Coluna("Custo total", "moeda"), Coluna("Motivo"), Coluna("Documento"), Coluna("Responsável"),
+        Coluna("Situação"),
+    ])
+    por_motivo = defaultdict(lambda: {"saidas": 0, "custo": ZERO})
+    por_produto = defaultdict(lambda: [ZERO, ZERO])
+    produtos = {}
+    total = ZERO
+    for m in saidas:
+        quantidade, custo = -m.quantidade, -m.quantidade * m.custo_unitario
+        estorno = estornos.get(m.id)
+        detalhe.linhas.append([
+            m.data.strftime("%d/%m/%Y %H:%M"), str(m.produto), m.lote.numero_lote, m.lote.validade,
+            str(m.localizacao), quantidade, m.produto.unidade_medida, m.custo_unitario, custo, m.motivo or "",
+            m.documento or "", m.usuario.login if m.usuario else "",
+            f"Estornada em {estorno:%d/%m/%Y}" if estorno else "",
+        ])
+        if estorno:
+            detalhe.destaques[len(detalhe.linhas) - 1] = "text-muted text-decoration-line-through"
+            continue
+        total += custo
+        motivo = (m.motivo or "Sem motivo").strip()
+        por_motivo[motivo]["saidas"] += 1
+        por_motivo[motivo]["custo"] += custo
+        produtos[m.produto_id] = m.produto
+        por_produto[m.produto_id][0] += quantidade
+        por_produto[m.produto_id][1] += custo
+    detalhe.rodape = ["Total (sem estornadas)", "", "", "", "", "", "", "", total, "", "", "", ""]
+
+    motivos = Tabela("Resumo por motivo", [
+        Coluna("Motivo"), Coluna("Classificação"), Coluna("Saídas (lotes)", "numero"), Coluna("Custo", "moeda"),
+        Coluna("% do custo", "numero"),
+    ])
+    for motivo, dados in sorted(por_motivo.items(), key=lambda item: -item[1]["custo"]):
+        motivos.linhas.append([motivo, categoria_perda(motivo) or "Outras saídas", dados["saidas"], dados["custo"],
+                               dados["custo"] * 100 / total if total else ZERO])
+    motivos.rodape = ["Total", "", sum(d["saidas"] for d in por_motivo.values()), total, 100 if total else 0]
+
+    por_item = Tabela("Resumo por produto", [
+        Coluna("Produto"), Coluna("Unidade"), Coluna("Quantidade", "numero"), Coluna("Custo", "moeda"),
+    ])
+    for pid, (quantidade, custo) in sorted(por_produto.items(), key=lambda item: -item[1][1]):
+        por_item.linhas.append([str(produtos[pid]), produtos[pid].unidade_medida, quantidade, custo])
+    por_item.rodape = ["Total", "", "", total]
+    return [motivos, por_item, detalhe]
+
+
 def _identificacao(paciente, anonimo):
     """Nome do paciente ou, em relatórios anonimizados, um código sem dados pessoais."""
     return paciente.pseudonimo if anonimo else paciente.nome

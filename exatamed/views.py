@@ -578,6 +578,7 @@ RELATORIOS = {
     "consumo_diario": ("Consumo diário", "periodo_local"),
     "resumo_dispensacao": ("Resumo de dispensação por data", "periodo"),
     "consumo_local": ("Consumo por local de dispensação", "periodo_local"),
+    "saidas_avulsas": ("Saídas avulsas", "periodo_local"),
     "consumo_paciente": ("Consumo por paciente", "periodo_paciente"),
     "pedido_compra": ("Estoque mínimo/máximo e pedido de compra", "historico"),
     "inventario": ("Inventário", "local"),
@@ -608,6 +609,8 @@ def _gerar(chave):
         return relatorios.resumo_dispensacao(inicio, fim, anonimo=_anonimo())
     if chave == "consumo_local":
         return relatorios.consumo_por_local(inicio, fim, localizacao_id)
+    if chave == "saidas_avulsas":
+        return relatorios.saidas_avulsas(inicio, fim, localizacao_id)
     if chave == "consumo_paciente":
         return relatorios.consumo_por_paciente(inicio, fim, request.args.get("paciente_id", type=int),
                                                anonimo=_anonimo())

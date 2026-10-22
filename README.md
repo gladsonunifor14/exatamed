@@ -161,10 +161,11 @@ bibliotecas externas, compatíveis com a política de segurança de conteúdo e 
 | 1 | **Consumo diário** | Custo por dia (dispensações e saídas avulsas), quantidade por produto e média diária no período; filtro por local. |
 | 2 | **Resumo de dispensação por data** | Número de dispensações, pacientes atendidos, itens e custo por data, com a lista detalhada. |
 | 3 | **Consumo por local de dispensação** | Custo e participação percentual de cada leito/sala/setor, com detalhamento por produto. |
-| 4 | **Consumo por paciente** | Dispensações, itens e custo por paciente; ao filtrar um paciente, os itens consumidos. |
-| 5 | **Estoque mínimo/máximo e pedido de compra** | Saldo utilizável, mínimo, máximo, consumo médio diário (CMD), cobertura em dias, situação e **sugestão de compra** com custo estimado. |
-| 6 | **Inventário** | Posição por lote e local, valorizada pelo custo PEPS, com destaque para lotes vencidos e a vencer em 90 dias, e resumo por produto. |
-| 7 | **Escrituração de controlados** | Livro dos medicamentos de controle especial (Portaria 344/98): saldo anterior, entradas, saídas com paciente, prescritor e responsável, saldo corrente e final. Filtro por classificação (A1, B1, C1, antimicrobiano...) ou por medicamento. Restrito ao farmacêutico; exportação registrada. |
+| 4 | **Saídas avulsas** | Cada saída avulsa (consumo de setor, avaria, perda, vencimento) com data, lote, local, motivo, documento, responsável e custo PEPS; resumos por motivo e por produto; saídas estornadas marcadas e fora dos totais. Filtros de período e local. |
+| 5 | **Consumo por paciente** | Dispensações, itens e custo por paciente; ao filtrar um paciente, os itens consumidos. |
+| 6 | **Estoque mínimo/máximo e pedido de compra** | Saldo utilizável, mínimo, máximo, consumo médio diário (CMD), cobertura em dias, situação e **sugestão de compra** com custo estimado. |
+| 7 | **Inventário** | Posição por lote e local, valorizada pelo custo PEPS, com destaque para lotes vencidos e a vencer em 90 dias, e resumo por produto. |
+| 8 | **Escrituração de controlados** | Livro dos medicamentos de controle especial (Portaria 344/98): saldo anterior, entradas, saídas com paciente, prescritor e responsável, saldo corrente e final. Filtro por classificação (A1, B1, C1, antimicrobiano...) ou por medicamento. Restrito ao farmacêutico; exportação registrada. |
 
 **Cálculo do pedido de compra**
 
