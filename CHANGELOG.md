@@ -3,6 +3,17 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.6.0] — 2026-10-22
+
+### Adicionado
+- Relatório **Saídas avulsas** em Análises e relatórios, com filtros de período e local: detalhe de
+  cada saída por lote (data, produto, validade, quantidade, custo PEPS, motivo, documento,
+  responsável), resumo por motivo (com a classificação de avarias e perdas) e por produto. Saídas
+  estornadas aparecem marcadas e ficam fora dos totais. Exportação em CSV e impressão.
+
+### Alterado
+- Valores em reais e datas não quebram linha nas tabelas dos relatórios.
+
 ## [2.5.0] — 2026-10-19
 
 ### Alterado

@@ -6,12 +6,13 @@
   'consumo_diario': 'Custo e quantidade consumidos por dia (dispensações e saídas avulsas), com média diária por produto.',
   'resumo_dispensacao': 'Número de dispensações, pacientes atendidos e custo agrupados por data, com a lista detalhada.',
   'consumo_local': 'Consumo por leito, sala ou setor de destino, com participação no custo total e detalhe por produto.',
+  'saidas_avulsas': 'Saídas avulsas (consumo de setor, avarias, perdas, vencimentos) por data e local, com motivo, custo PEPS e resumos por motivo e por produto.',
   'consumo_paciente': 'Custo e itens dispensados por paciente; selecione um paciente para ver o detalhamento.',
   'pedido_compra': 'Saldo utilizável versus estoques mínimo e máximo, consumo médio diário, cobertura e sugestão de compra.',
   'inventario': 'Posição do estoque por lote e local, valorizada pelo custo PEPS de cada camada, com alerta de validade.',
   'livro_controlados': 'Escrituração dos medicamentos de controle especial: saldo anterior, entradas, saídas com paciente e prescritor, saldo corrente e final.',
 } %}
-{% set icones = {'consumo_diario': 'calendar3', 'resumo_dispensacao': 'prescription2', 'consumo_local': 'geo-alt', 'consumo_paciente': 'person-lines-fill', 'pedido_compra': 'cart-plus', 'inventario': 'clipboard-data', 'livro_controlados': 'journal-medical'} %}
+{% set icones = {'consumo_diario': 'calendar3', 'resumo_dispensacao': 'prescription2', 'consumo_local': 'geo-alt', 'saidas_avulsas': 'box-arrow-up', 'consumo_paciente': 'person-lines-fill', 'pedido_compra': 'cart-plus', 'inventario': 'clipboard-data', 'livro_controlados': 'journal-medical'} %}
 <div class="row g-3">
   {% for chave, (titulo, _) in relatorios.items() if chave != 'livro_controlados' or current_user.pode(Usuario.FARMACEUTICO) %}
   <div class="col-md-6 col-xl-4"><a class="card h-100 text-decoration-none text-reset" href="{{ url_for('relatorios.exibir', chave=chave) }}"><div class="card-body">

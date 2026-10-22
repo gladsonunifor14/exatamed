@@ -44,8 +44,8 @@
 {% endmacro %}
 
 {% macro celula(v, formato) %}
-{% if formato == 'moeda' and v is number %}<td class="text-end">{{ v|moeda }}</td>
+{% if formato == 'moeda' and v is number %}<td class="text-end text-nowrap">{{ v|moeda }}</td>
 {% elif formato == 'numero' %}<td class="text-end">{{ v|numero }}</td>
-{% elif formato == 'data' %}<td>{{ v|data }}</td>
+{% elif formato == 'data' %}<td class="text-nowrap">{{ v|data }}</td>
 {% else %}<td>{{ v }}</td>{% endif %}
 {% endmacro %}

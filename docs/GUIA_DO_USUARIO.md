@@ -360,12 +360,20 @@ CSV**, que abre direto no Excel.
 | **Consumo diário** | Acompanhar o custo do consumo dia a dia e a média diária de cada produto |
 | **Resumo de dispensação por data** | Saber quantas dispensações e pacientes foram atendidos em cada dia |
 | **Consumo por local de dispensação** | Comparar o consumo entre leitos, salas e setores |
+| **Saídas avulsas** | Ver cada saída avulsa do período (consumo de setor, avarias, perdas, vencimentos), com lote, motivo, documento, responsável e custo, filtrando por **data** e por **local** de onde o item saiu. Traz também o resumo por motivo e por produto |
 | **Consumo por paciente** | Ver o que cada paciente recebeu e o custo (útil para faturamento) |
 | **Estoque mínimo/máximo e pedido de compra** | Montar o pedido de compra: mostra o saldo, o consumo médio, para quantos dias o estoque dá e quanto comprar |
 | **Inventário** | Ver a posição do estoque por lote e local, com o valor total, os lotes perto do vencimento e os bloqueados |
 | **Escrituração de controlados** | Livro dos medicamentos de controle especial: saldo anterior, cada entrada e saída com paciente, prescritor (CRM) e responsável, saldo corrente e final. Filtra por **classificação** (A1, B1, C1, antimicrobiano...) ou por medicamento. Só para farmacêuticos; a exportação fica registrada |
 
 O atalho **Consumo** na lista de pacientes abre o consumo daquele paciente nos últimos 12 meses.
+
+No relatório de **saídas avulsas**, uma saída aparece em uma linha por lote baixado (a baixa segue o
+PEPS). Saídas estornadas continuam na lista, riscadas e com a data do estorno, mas não entram nos
+totais nem nos resumos. A coluna *Classificação* do resumo por motivo usa as mesmas palavras da taxa
+de avarias do Dashboard (*avaria*, *quebra*, *vencimento*, *perda*, *extravio*).
+
+![Relatório de saídas avulsas](img/relatorio_saidas_avulsas.png)
 
 Na **escrituração de controlados**, escolha a **classificação** para ver só os medicamentos de uma
 lista (por exemplo, todos os da A1) ou um **medicamento** específico; deixe *Todas as
