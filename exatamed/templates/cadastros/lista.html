@@ -1,30 +1,40 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% from "_macros.html" import selo, rotulo_icone %}
 {% block titulo %}{{ cadastro.titulo }}{% endblock %}
+{% macro valor(v) -%}
+  {%- if v is sameas true %}<i class="bi bi-check-circle-fill text-success" aria-hidden="true"></i><span class="visually-hidden">Sim</span>
+  {%- elif v is sameas false %}<i class="bi bi-dash-circle text-muted" aria-hidden="true"></i><span class="visually-hidden">Não</span>
+  {%- elif v is number %}{{ v|numero }}{% else %}{{ v or '' }}{% endif -%}
+{%- endmacro %}
+{% macro acoes(obj, rotulos_visiveis=False) %}
+  {% for rotulo, endpoint, param in cadastro.links %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for(endpoint, **{param: obj.id}) }}">{{ rotulo }}</a>{% endfor %}
+  {% if obj.anonimizado %}<span class="badge bg-dark me-1">Anonimizado</span>{% endif %}
+  {% if current_user.pode(cadastro.perfil_edicao) and not obj.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}" {{ rotulo_icone('Editar') }}><i class="bi bi-pencil" aria-hidden="true"></i>{% if rotulos_visiveis %} Editar{% endif %}</a>{% endif %}
+  {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" data-confirmar="Excluir este registro?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" {{ rotulo_icone('Excluir') }}><i class="bi bi-trash" aria-hidden="true"></i>{% if rotulos_visiveis %} Excluir{% endif %}</button></form>{% endif %}
+{% endmacro %}
 {% block conteudo %}
+{% set pode_editar = current_user.pode(cadastro.perfil_edicao) %}
 <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{{ cadastro.titulo }}</h1>
-  <div class="d-flex gap-2">
-    <form class="d-flex" method="get"><input class="form-control" name="q" value="{{ termo }}" placeholder="Pesquisar..."><button class="btn btn-outline-secondary ms-1"><i class="bi bi-search"></i></button></form>
-    {% set pode_editar = current_user.pode(cadastro.perfil_edicao) %}
-    {% if pode_editar %}<a class="btn btn-exata" href="{{ url_for('cadastros.editar', chave=cadastro.chave) }}"><i class="bi bi-plus-lg"></i> Novo</a>{% endif %}
+  <div class="d-flex gap-2 flex-grow-1 flex-md-grow-0">
+    <form class="d-flex flex-grow-1" method="get" role="search"><input class="form-control" name="q" value="{{ termo }}" placeholder="Pesquisar..." aria-label="Pesquisar {{ cadastro.titulo|lower }}">
+      <button class="btn btn-outline-secondary ms-1" {{ rotulo_icone('Pesquisar') }}><i class="bi bi-search" aria-hidden="true"></i></button></form>
+    {% if pode_editar %}<a class="btn btn-exata text-nowrap" href="{{ url_for('cadastros.editar', chave=cadastro.chave) }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Novo</a>{% endif %}
   </div>
 </div>
-<div class="card">
+{% if termo or pagina.total %}<p class="small text-muted mb-2">{{ pagina.total }} registro(s){% if termo %} para “{{ termo }}”{% endif %}</p>{% endif %}
+
+{# Computador e tablet: tabela #}
+<div class="card d-none d-md-block">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle">
       <thead class="table-light"><tr>{% for _, rotulo in cadastro.colunas %}<th>{{ rotulo }}</th>{% endfor %}<th class="text-end">Ações</th></tr></thead>
       <tbody>
-      {% for obj in pagina.items %}
+      {% for obj in pagina.items %}{% set s = cadastro.selo(obj) if cadastro.selo else none %}
         <tr>
-          {% for campo, _ in cadastro.colunas %}{% set v = obj|attr(campo) %}
-          <td>{% if v is sameas true %}<i class="bi bi-check-circle-fill text-success"></i>{% elif v is sameas false %}<i class="bi bi-dash-circle text-muted"></i>{% elif v is number %}{{ v|numero }}{% else %}{{ v or '' }}{% endif %}</td>
+          {% for campo, _ in cadastro.colunas %}
+          <td>{{ valor(obj|attr(campo)) }}{% if s and campo == cadastro.coluna_selo %} {{ selo(*s) }}{% endif %}</td>
           {% endfor %}
-          <td class="text-end text-nowrap">
-            {% for rotulo, endpoint, param in cadastro.links %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for(endpoint, **{param: obj.id}) }}">{{ rotulo }}</a>{% endfor %}
-            {% if obj.anonimizado %}<span class="badge bg-dark me-1">Anonimizado</span>{% endif %}
-            {% if current_user.pode(cadastro.perfil_edicao) and not obj.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
-            {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" data-confirmar="Excluir este registro?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>{% endif %}
-          </td>
+          <td class="text-end text-nowrap">{{ acoes(obj) }}</td>
         </tr>
       {% else %}
         <tr><td colspan="{{ cadastro.colunas|length + 1 }}" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
@@ -33,10 +43,31 @@
     </table>
   </div>
 </div>
+
+{# Celular: um cartão por registro, com todos os campos e ações visíveis #}
+<div class="d-md-none lista-cartoes">
+  {% for obj in pagina.items %}{% set s = cadastro.selo(obj) if cadastro.selo else none %}
+  {% set primeiro = cadastro.colunas[0][0] %}
+  <div class="card mb-2"><div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+      <strong>{{ valor(obj|attr(primeiro)) }}</strong>{% if s %}{{ selo(*s) }}{% endif %}
+    </div>
+    <dl class="row small mb-2">
+      {% for campo, rotulo in cadastro.colunas[1:] %}{% set v = obj|attr(campo) %}{% if v is not none and v != '' %}
+      <dt class="col-5 text-muted fw-normal">{{ rotulo }}</dt><dd class="col-7 mb-1">{{ valor(v) }}</dd>
+      {% endif %}{% endfor %}
+    </dl>
+    <div class="d-flex flex-wrap gap-1">{{ acoes(obj, rotulos_visiveis=True) }}</div>
+  </div></div>
+  {% else %}
+  <div class="card"><div class="card-body text-center text-muted py-4">Nenhum registro encontrado.</div></div>
+  {% endfor %}
+</div>
+
 {% if pagina.pages > 1 %}
-<nav class="mt-3"><ul class="pagination">
+<nav class="mt-3" aria-label="Páginas"><ul class="pagination flex-wrap">
   {% for n in pagina.iter_pages() %}
-    {% if n %}<li class="page-item {{ 'active' if n == pagina.page }}"><a class="page-link" href="?q={{ termo }}&pagina={{ n }}">{{ n }}</a></li>
+    {% if n %}<li class="page-item {{ 'active' if n == pagina.page }}"><a class="page-link" href="?q={{ termo }}&pagina={{ n }}" {% if n == pagina.page %}aria-current="page"{% endif %}>{{ n }}</a></li>
     {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
   {% endfor %}
 </ul></nav>

@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [
@@ -143,6 +143,34 @@ def numerar_dispensacoes_antigas():
     with db.engine.begin() as conexao:
         conexao.execute(db.text(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_dispensacao_numero_ano ON dispensacoes (ano, numero)"))
+
+
+# Seção do menu de cada área: (rótulo, endpoint da página inicial da seção ou None).
+SECOES = {
+    "cadastros": ("Cadastros", None),
+    "estoque": ("Estoque", None),
+    "relatorios": ("Relatórios", "relatorios.indice"),
+    "dashboard": ("Dashboard", "dashboard.indice"),
+    "ajuda": ("Ajuda", "ajuda.guia"),
+    "lgpd": ("Administração", None),
+    "auditoria": ("Administração", None),
+}
+
+
+def secao_atual(endpoint):
+    """Seção do menu da página atual (destaque no menu e caminho de navegação), ou None."""
+    if not endpoint or "." not in endpoint:
+        return None
+    blueprint, nome = endpoint.split(".", 1)
+    if blueprint == "estoque" and nome.endswith(("dispensacao", "pacientes", "alergias")):
+        return {"chave": "dispensacao", "rotulo": "Dispensação", "endpoint": "estoque.dispensacao"}
+    if blueprint == "auth" and nome in ("usuarios", "novo_usuario", "editar_usuario"):
+        return {"chave": "administracao", "rotulo": "Administração", "endpoint": None}
+    if blueprint not in SECOES:
+        return None
+    rotulo, inicial = SECOES[blueprint]
+    chave = "administracao" if rotulo == "Administração" else blueprint
+    return {"chave": chave, "rotulo": rotulo, "endpoint": inicial}
 
 
 def url_banco(instance_path):
@@ -310,7 +338,7 @@ def create_app(config=None):
 
     @app.context_processor
     def globais():
-        return {"versao": __version__, "Usuario": Usuario}
+        return {"versao": __version__, "Usuario": Usuario, "secao": secao_atual(request.endpoint)}
 
     with app.app_context():
         db.create_all()

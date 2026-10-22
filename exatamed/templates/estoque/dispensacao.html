@@ -40,7 +40,7 @@
         <tr class="item">
           <td>{{ select_produto(produtos, 'item_produto', produtos_form[i] if produtos_form else None, obrigatorio=False) }}<div class="small aviso"></div></td>
           <td><input class="form-control" name="item_quantidade" inputmode="decimal" value="{{ qtds_form[i] if qtds_form else '' }}"></td>
-          <td><button type="button" class="btn btn-sm btn-outline-danger remover"><i class="bi bi-x-lg"></i></button></td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger remover" title="Remover item" aria-label="Remover item"><i class="bi bi-x-lg" aria-hidden="true"></i></button></td>
         </tr>
       {% endfor %}
       </tbody>

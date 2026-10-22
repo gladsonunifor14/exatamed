@@ -34,11 +34,19 @@ Bom saber:
 O painel é a primeira tela depois do login. Ele mostra:
 
 - **Indicadores do dia:** itens ativos, pacientes, dispensações de hoje, consumo de hoje e valor
-  total do estoque.
-- **Itens a repor:** produtos que chegaram ao estoque mínimo, com a quantidade sugerida para compra.
-- **Lotes vencidos ou a vencer:** lotes que vencem nos próximos 90 dias (em amarelo) ou já
-  vencidos (em vermelho).
+  total do estoque. Clique num indicador para abrir a lista ou o relatório correspondente.
+- **Itens a repor:** produtos abaixo do estoque mínimo ou no ponto de pedido, com a quantidade
+  sugerida para compra (— quando o produto não tem estoque máximo definido).
+- **Lotes vencidos ou a vencer:** lotes que vencem nos próximos 90 dias, com um selo que indica a
+  faixa: vermelho até 30 dias (ou vencido), laranja até 60 e amarelo até 90. *Ver todos* abre o
+  painel de vencimentos do Dashboard.
 - **Últimas dispensações:** clique no número para abrir o comprovante.
+
+Os selos de situação (como **Em falta**, **Abaixo do mínimo** ou **Vence em 20 dias**) sempre
+trazem ícone e texto, além da cor. No alto de cada página, o caminho (por exemplo *Início ›
+Estoque › Lotes e saldos*) mostra onde você está, e o item correspondente fica destacado no menu.
+No celular, as listas de cadastros, lotes, movimentações e notas fiscais aparecem como cartões,
+com todos os campos e botões visíveis.
 
 ![Painel do ExataMed](img/painel.png)
 

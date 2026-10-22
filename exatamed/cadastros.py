@@ -82,6 +82,8 @@ class Cadastro:
     links: list = field(default_factory=list)  # (rótulo, endpoint, nome do parâmetro)
     perfil_edicao: str = Usuario.AUXILIAR  # perfil mínimo para incluir/alterar
     entidade_lgpd: str = None  # cadastros de pessoas: acessos registrados e anonimização
+    selo: callable = None  # obj -> (status, rótulo) ou None: selo exibido ao lado de coluna_selo
+    coluna_selo: str = None
 
     def limite(self, atributo):
         return tamanho_maximo(self.modelo, atributo)
@@ -280,6 +282,8 @@ CADASTROS = {
         pode_excluir=_bloqueio_produto,
         perfil_edicao=Usuario.FARMACEUTICO,
         links=[("Lotes", "estoque.lotes", "produto_id")],
+        selo=lambda produto: produto.situacao_estoque,
+        coluna_selo="saldo",
     ),
     "localizacoes": Cadastro(
         "localizacoes", Localizacao, "Localizações", "Localização",

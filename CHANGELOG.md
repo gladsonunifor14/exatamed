@@ -3,6 +3,23 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.7.0] — 2026-10-22
+
+### Alterado
+- Listas de cadastros, lotes, movimentações e notas fiscais em cartões no celular (sem colunas
+  cortadas), com contagem de registros.
+- Selos de situação com ícone e texto: **Em falta** e **Abaixo do mínimo** ao lado do saldo dos
+  produtos; validade dos lotes por faixa (vencido, até 30, 60 e 90 dias) no painel e em Lotes.
+- Painel: indicadores clicáveis, quadros de reposição e vencimentos sem cores de linha uniformes e
+  com link para o Dashboard.
+- Item do menu da seção atual destacado e caminho de navegação no alto das páginas.
+- Botões só com ícone com dica e rótulo acessível; foco visível para navegação pelo teclado.
+- Links, paginação e botões na cor da marca; números alinhados em coluna nas tabelas.
+
+### Corrigido
+- "Itens a repor" no painel omitia produtos abaixo do mínimo sem estoque máximo definido e dizia
+  que todos estavam acima do mínimo.
+
 ## [2.6.0] — 2026-10-22
 
 ### Adicionado

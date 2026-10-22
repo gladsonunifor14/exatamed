@@ -49,3 +49,14 @@
 {% elif formato == 'data' %}<td class="text-nowrap">{{ v|data }}</td>
 {% else %}<td>{{ v }}</td>{% endif %}
 {% endmacro %}
+
+{# Selo de situação: ícone + texto (a cor nunca é a única informação). #}
+{% macro selo(status, rotulo) -%}
+{%- set icones = {'critico': 'x-octagon-fill', 'serio': 'exclamation-triangle-fill', 'alerta': 'exclamation-circle-fill', 'bom': 'check-circle-fill', 'neutro': 'dash-circle'} -%}
+<span class="selo selo-{{ status }}"><i class="bi bi-{{ icones[status] }}" aria-hidden="true"></i> {{ rotulo }}</span>
+{%- endmacro %}
+
+{# Botão só com ícone: dica ao passar o mouse e rótulo para leitor de tela. #}
+{% macro rotulo_icone(texto) -%}
+title="{{ texto }}" aria-label="{{ texto }}"
+{%- endmacro %}

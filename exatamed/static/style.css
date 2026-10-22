@@ -66,3 +66,36 @@ a.kpi:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, .14); }
 .viz-dica { position: fixed; z-index: 1080; pointer-events: none; background: #1f2626; color: #fff; font-size: .8rem;
   padding: .3rem .55rem; border-radius: .3rem; max-width: 320px; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); }
 @media print { .viz-tabela { max-height: none; overflow: visible; } details:not([open]) > :not(summary) { display: none; } }
+/* Identidade: links e destaques na cor da marca (no lugar do azul padrão do Bootstrap). */
+:root {
+  --bs-link-color: #0b6e6e; --bs-link-color-rgb: 11, 110, 110;
+  --bs-link-hover-color: #075454; --bs-link-hover-color-rgb: 7, 84, 84;
+}
+.pagination { --bs-pagination-color: var(--exata); --bs-pagination-hover-color: var(--exata-escuro);
+  --bs-pagination-active-bg: var(--exata); --bs-pagination-active-border-color: var(--exata);
+  --bs-pagination-focus-box-shadow: 0 0 0 .2rem rgba(11, 110, 110, .25); }
+.btn-outline-primary { --bs-btn-color: var(--exata); --bs-btn-border-color: var(--exata); --bs-btn-hover-bg: var(--exata);
+  --bs-btn-hover-border-color: var(--exata); --bs-btn-active-bg: var(--exata-escuro); --bs-btn-active-border-color: var(--exata-escuro); }
+.form-control:focus, .form-select:focus, .form-check-input:focus { border-color: #5fa9a9; box-shadow: 0 0 0 .2rem rgba(11, 110, 110, .2); }
+.form-check-input:checked { background-color: var(--exata); border-color: var(--exata); }
+/* Números alinhados em coluna nas tabelas e indicadores. */
+.table, .kpi .valor, .viz-hero { font-variant-numeric: tabular-nums; }
+/* Foco visível para quem navega pelo teclado. */
+a:focus-visible, .btn:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--exata); outline-offset: 2px; }
+/* Menu: item da seção atual. */
+.navbar-dark .nav-link.active { color: #fff; font-weight: 600; box-shadow: inset 0 -3px 0 rgba(255, 255, 255, .85); }
+.breadcrumb { --bs-breadcrumb-divider-color: #8a9a9a; }
+.breadcrumb-item.active { color: #52514e; }
+/* Selos de situação: ícone + texto, a cor nunca é a única informação. */
+.selo { display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; font-size: .8rem; font-weight: 500;
+  padding: .1rem .5rem; border-radius: 1rem; border: 1px solid; line-height: 1.4; }
+.selo-critico { color: #9b1c1c; background: #fdecec; border-color: #f3c1c1; }
+.selo-serio { color: #8a3b12; background: #fff1e8; border-color: #f6cdb4; }
+.selo-alerta { color: #6b4e00; background: #fff7dc; border-color: #f2df9c; }
+.selo-bom { color: #0f5e0f; background: #eaf7ea; border-color: #bfe3bf; }
+.selo-neutro { color: #52514e; background: #f1f3f3; border-color: #dcdfdf; }
+/* Listas no celular: cartões. */
+.lista-cartoes .card { border: 1px solid rgba(0, 0, 0, .06); }
+.lista-cartoes dl dt, .lista-cartoes dl dd { line-height: 1.35; }
+.kpi .valor { white-space: nowrap; }
+@media (max-width: 575.98px) { .kpi .valor { font-size: 1.3rem; } .kpi .rotulo { font-size: .75rem; } }

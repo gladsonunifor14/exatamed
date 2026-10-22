@@ -1,33 +1,50 @@
 {% extends "base.html" %}
 {% block titulo %}Notas fiscais{% endblock %}
+{% macro situacao(n) %}<span class="badge {{ {'IMPORTADA': 'bg-success', 'PENDENTE': 'bg-warning text-dark', 'DESCARTADA': 'bg-secondary'}[n.situacao] }}">{{ n.situacao_descricao }}</span>{% endmacro %}
+{% macro acoes(n) %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('estoque.conferir_nfe', id=n.id) }}">{{ 'Conferir' if n.situacao == 'PENDENTE' else 'Ver' }}</a>
+  {% if n.situacao == 'DESCARTADA' and current_user.pode(Usuario.FARMACEUTICO) %}
+  <form method="post" action="{{ url_for('estoque.excluir_nfe', id=n.id) }}" class="d-inline" data-confirmar="Excluir a {{ n.documento }} descartada? Esta ação não pode ser desfeita.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-sm btn-outline-danger" aria-label="Excluir {{ n.documento }}"><i class="bi bi-trash" aria-hidden="true"></i> Excluir</button></form>
+  {% elif n.situacao == 'IMPORTADA' %}
+  <span class="btn btn-sm btn-outline-secondary disabled" title="Nota importada: é o documento de origem dos lotes e não pode ser excluída" aria-label="Nota importada: exclusão bloqueada"><i class="bi bi-lock" aria-hidden="true"></i></span>
+  {% endif %}{% endmacro %}
 {% block conteudo %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
   <h1 class="h3 mb-0"><i class="bi bi-receipt"></i> Notas fiscais (NF-e)</h1>
   <a class="btn btn-exata" href="{{ url_for('estoque.entrada') }}"><i class="bi bi-filetype-xml"></i> Importar XML</a>
 </div>
-<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
-  <thead class="table-light"><tr><th>NF-e</th><th>Emissão</th><th>Fornecedor</th><th class="text-end">Valor</th><th>Situação</th><th>Local</th><th>Importada em</th><th></th></tr></thead>
+<div class="card d-none d-md-block"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>NF-e</th><th>Emissão</th><th>Fornecedor</th><th class="text-end">Valor</th><th>Situação</th><th>Local</th><th>Importada em</th><th><span class="visually-hidden">Ações</span></th></tr></thead>
   <tbody>
   {% for n in pagina.items %}
     <tr>
       <td class="text-nowrap">{{ n.documento }}</td><td>{{ n.emissao|data }}</td>
       <td>{{ n.emitente_nome }}<div class="small text-muted">CNPJ {{ n.emitente_cnpj }}</div></td>
       <td class="text-end">{{ n.valor_total|moeda }}</td>
-      <td><span class="badge {{ {'IMPORTADA': 'bg-success', 'PENDENTE': 'bg-warning text-dark', 'DESCARTADA': 'bg-secondary'}[n.situacao] }}">{{ n.situacao_descricao }}</span></td>
+      <td>{{ situacao(n) }}</td>
       <td>{{ n.localizacao or '' }}</td>
       <td class="small">{% if n.importada_em %}{{ n.importada_em|data('%d/%m/%Y %H:%M') }}{% if n.usuario %} · {{ n.usuario.login }}{% endif %}{% endif %}</td>
-      <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('estoque.conferir_nfe', id=n.id) }}">{{ 'Conferir' if n.situacao == 'PENDENTE' else 'Ver' }}</a>
-        {% if n.situacao == 'DESCARTADA' and current_user.pode(Usuario.FARMACEUTICO) %}
-        <form method="post" action="{{ url_for('estoque.excluir_nfe', id=n.id) }}" class="d-inline" data-confirmar="Excluir a {{ n.documento }} descartada? Esta ação não pode ser desfeita.">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-danger" aria-label="Excluir {{ n.documento }}"><i class="bi bi-trash"></i> Excluir</button></form>
-        {% elif n.situacao == 'IMPORTADA' %}
-        <span class="btn btn-sm btn-outline-secondary disabled" title="Nota importada: é o documento de origem dos lotes e não pode ser excluída" aria-label="Nota importada: exclusão bloqueada"><i class="bi bi-lock"></i></span>
-        {% endif %}</td>
+      <td class="text-end text-nowrap">{{ acoes(n) }}</td>
     </tr>
   {% else %}<tr><td colspan="8" class="text-center text-muted py-4">Nenhuma nota importada. Use <em>Importar XML</em> na entrada de estoque.</td></tr>{% endfor %}
   </tbody>
 </table></div></div>
+<div class="d-md-none lista-cartoes">
+  {% for n in pagina.items %}
+  <div class="card mb-2"><div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-start gap-2"><strong>{{ n.documento }}</strong>{{ situacao(n) }}</div>
+    <div class="small">{{ n.emitente_nome }}</div>
+    <div class="small text-muted mb-2">CNPJ {{ n.emitente_cnpj }} · emissão {{ n.emissao|data }}</div>
+    <dl class="row small mb-2">
+      <dt class="col-5 text-muted fw-normal">Valor</dt><dd class="col-7 mb-1">{{ n.valor_total|moeda }}</dd>
+      {% if n.localizacao %}<dt class="col-5 text-muted fw-normal">Local</dt><dd class="col-7 mb-1">{{ n.localizacao }}</dd>{% endif %}
+      {% if n.importada_em %}<dt class="col-5 text-muted fw-normal">Importada em</dt><dd class="col-7 mb-1">{{ n.importada_em|data('%d/%m/%Y %H:%M') }}{% if n.usuario %} · {{ n.usuario.login }}{% endif %}</dd>{% endif %}
+    </dl>
+    <div class="d-flex flex-wrap gap-1">{{ acoes(n) }}</div>
+  </div></div>
+  {% else %}<div class="card"><div class="card-body text-center text-muted py-4">Nenhuma nota importada. Use <em>Importar XML</em> na entrada de estoque.</div></div>{% endfor %}
+</div>
 {% if pagina.pages > 1 %}
 <nav class="mt-3"><ul class="pagination">
   {% for p in pagina.iter_pages() %}{% if p %}<li class="page-item {{ 'active' if p == pagina.page }}"><a class="page-link" href="{{ url_for('estoque.notas_fiscais', pagina=p) }}">{{ p }}</a></li>{% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}{% endfor %}
