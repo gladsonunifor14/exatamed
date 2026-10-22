@@ -23,7 +23,7 @@
         {% if u.bloqueado_ate and u.bloqueado_ate > agora %}
         <form class="d-inline" method="post" action="{{ url_for('auth.desbloquear_usuario', id=u.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock"></i> Desbloquear</button></form>
         {% endif %}
-        {% if not u.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth.editar_usuario', id=u.id) }}"><i class="bi bi-pencil"></i></a>{% endif %}
+        {% if not u.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('auth.editar_usuario', id=u.id) }}" title="Editar usuário" aria-label="Editar usuário {{ u.login }}"><i class="bi bi-pencil" aria-hidden="true"></i></a>{% endif %}
       </td>
     </tr>
   {% endfor %}

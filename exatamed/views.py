@@ -100,7 +100,9 @@ def painel():
         dispensacoes_hoje=Dispensacao.query.filter(Dispensacao.data >= inicio).count(),
         consumo_hoje=consumo_hoje,
         valor_estoque=sum(l.saldo * l.custo_unitario for l in Lote.query.filter(Lote.saldo > 0)),
-        repor=[p for p in pedido if p["sugestao"] > 0],
+        # Abaixo ou no ponto de pedido; sem mínimo definido, só quando há sugestão de compra.
+        repor=[p for p in pedido if p["situacao"] in ("Abaixo do mínimo", "No ponto de pedido")
+               and (p["sugestao"] > 0 or p["produto"].estoque_minimo > 0)],
         a_vencer=a_vencer,
         hoje=hoje,
         ultimas=Dispensacao.query.order_by(Dispensacao.data.desc()).limit(8).all(),

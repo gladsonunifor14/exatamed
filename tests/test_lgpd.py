@@ -90,7 +90,7 @@ def test_relatorios_anonimizados(client, base):
         for formato in ("", "&formato=csv"):
             texto = client.get(f"/relatorios/{chave}?inicio=2000-01-01&anonimo=1{formato}").get_data(as_text=True)
             if not formato:  # na página, confere só as tabelas (o filtro de pacientes não é impresso)
-                texto = texto.split("</form>", 2)[-1]
+                texto = texto.rsplit("</form>", 1)[-1]
             assert p.pseudonimo in texto and "Maria" not in texto and "982.247" not in texto, chave
     assert not _acessos(RegistroAcesso.EXPORTAR)  # relatório anônimo não registra exportação
 

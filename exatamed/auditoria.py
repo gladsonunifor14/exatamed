@@ -83,7 +83,7 @@ AUDITADOS = {
     ProdutoFornecedor: ("produto_fornecedor", set()),
 }
 ENTIDADES = {nome: modelo.__name__ for modelo, (nome, _) in AUDITADOS.items()}
-IGNORADOS = {"criado_em", "atualizado_em", "ultimo_acesso", "tentativas_falhas", "ocultar_primeiros_passos",
+IGNORADOS = {"criado_em", "atualizado_em", "ultimo_acesso", "tentativas_falhas", "ocultar_primeiros_passos", "tema",
              "seq_cadeia", "hash", "id", "xml"}
 DADO_PESSOAL = "(dado pessoal)"
 

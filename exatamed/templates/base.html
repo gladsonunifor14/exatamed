@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-tema="{{ current_user.tema if current_user.is_authenticated and current_user.tema else 'sistema' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,6 +8,8 @@
   <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <meta name="color-scheme" content="light dark">
+  <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
 </head>
 <body>
 {% if current_user.is_authenticated %}
@@ -18,7 +20,7 @@
     <div class="collapse navbar-collapse" id="menu">
       <ul class="navbar-nav me-auto">
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Cadastros</a>
+          <a class="nav-link dropdown-toggle {{ 'active' if secao and secao.chave == 'cadastros' }}" href="#" data-bs-toggle="dropdown" {% if secao and secao.chave == 'cadastros' %}aria-current="page"{% endif %}>Cadastros</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{{ url_for('cadastros.listar', chave='pacientes') }}"><i class="bi bi-person"></i> Pacientes</a></li>
             <li><a class="dropdown-item" href="{{ url_for('cadastros.listar', chave='medicos') }}"><i class="bi bi-person-badge"></i> Médicos</a></li>
@@ -27,7 +29,7 @@
           </ul>
         </li>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Estoque</a>
+          <a class="nav-link dropdown-toggle {{ 'active' if secao and secao.chave == 'estoque' }}" href="#" data-bs-toggle="dropdown" {% if secao and secao.chave == 'estoque' %}aria-current="page"{% endif %}>Estoque</a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{{ url_for('estoque.entrada') }}"><i class="bi bi-box-arrow-in-down"></i> Entrada</a></li>
             <li><a class="dropdown-item" href="{{ url_for('estoque.notas_fiscais') }}"><i class="bi bi-receipt"></i> Notas fiscais (NF-e)</a></li>
@@ -39,12 +41,12 @@
             {% if current_user.pode(Usuario.FARMACEUTICO) %}<li><a class="dropdown-item" href="{{ url_for('estoque.contagem') }}"><i class="bi bi-clipboard-check"></i> Contagem de inventário</a></li>{% endif %}
           </ul>
         </li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('estoque.dispensacao') }}"><i class="bi bi-prescription2"></i> Dispensação</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('relatorios.indice') }}"><i class="bi bi-graph-up"></i> Relatórios</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard.indice') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if secao and secao.chave == 'dispensacao' }}" href="{{ url_for('estoque.dispensacao') }}" {% if secao and secao.chave == 'dispensacao' %}aria-current="page"{% endif %}><i class="bi bi-prescription2"></i> Dispensação</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if secao and secao.chave == 'relatorios' }}" href="{{ url_for('relatorios.indice') }}" {% if secao and secao.chave == 'relatorios' %}aria-current="page"{% endif %}><i class="bi bi-graph-up"></i> Relatórios</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if secao and secao.chave == 'dashboard' }}" href="{{ url_for('dashboard.indice') }}" {% if secao and secao.chave == 'dashboard' %}aria-current="page"{% endif %}><i class="bi bi-speedometer2"></i> Dashboard</a></li>
       </ul>
       <ul class="navbar-nav">
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('ajuda.guia') }}"><i class="bi bi-question-circle"></i> Ajuda</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if secao and secao.chave == 'ajuda' }}" href="{{ url_for('ajuda.guia') }}" {% if secao and secao.chave == 'ajuda' %}aria-current="page"{% endif %}><i class="bi bi-question-circle"></i> Ajuda</a></li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> {{ current_user.nome }}
             <span class="badge bg-light text-dark ms-1">{{ current_user.perfil_descricao }}</span></a>
@@ -54,6 +56,17 @@
             <li><a class="dropdown-item" href="{{ url_for('lgpd.acessos') }}"><i class="bi bi-shield-lock"></i> LGPD: registro de acessos</a></li>
             <li><a class="dropdown-item" href="{{ url_for('auditoria.trilha') }}"><i class="bi bi-journal-check"></i> Trilha de auditoria</a></li>
             <li><a class="dropdown-item" href="{{ url_for('auditoria.integridade') }}"><i class="bi bi-shield-check"></i> Integridade dos registros</a></li>{% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Aparência</h6></li>
+            <li><form method="post" action="{{ url_for('auth.meu_tema') }}" class="px-3 pb-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="voltar" value="{{ request.full_path }}">
+              <div class="btn-group btn-group-sm w-100 seletor-tema" role="group" aria-label="Aparência">
+                {% for valor, icone, rotulo in [('claro', 'sun', 'Claro'), ('escuro', 'moon-stars', 'Escuro'), ('sistema', 'circle-half', 'Automático')] %}
+                <button class="btn btn-outline-secondary {{ 'active' if current_user.tema == valor }}" name="tema" value="{{ valor }}"
+                  aria-pressed="{{ 'true' if current_user.tema == valor else 'false' }}" title="{{ Usuario.TEMAS[valor] }}"><i class="bi bi-{{ icone }}" aria-hidden="true"></i> {{ rotulo }}</button>
+                {% endfor %}
+              </div></form></li>
             <li><hr class="dropdown-divider"></li>
             <li><form method="post" action="{{ url_for('auth.logout') }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -67,11 +80,35 @@
 {% endif %}
 <main class="container-fluid py-4 px-lg-4">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
-    {% for categoria, mensagem in mensagens %}
-      <div class="alert alert-{{ categoria }} alert-dismissible fade show d-print-none">{{ mensagem }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    {# Erros e alertas ficam fixos até serem fechados; confirmações viram avisos que somem sozinhos. #}
+    {% for categoria, mensagem in mensagens if categoria in ('danger', 'warning') %}
+      <div class="alert alert-{{ categoria }} alert-dismissible fade show d-print-none" role="alert">
+        <i class="bi {{ 'bi-x-octagon' if categoria == 'danger' else 'bi-exclamation-triangle' }} me-1" aria-hidden="true"></i>{{ mensagem }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button></div>
     {% endfor %}
+    {% set avisos = mensagens | rejectattr(0, 'in', ['danger', 'warning']) | list %}
+    {% if avisos %}
+    <div class="toast-container position-fixed end-0 p-3 avisos d-print-none">
+      {% for categoria, mensagem in avisos %}
+      <div class="toast show align-items-center border-0 text-bg-{{ 'success' if categoria == 'success' else 'primary' }}"
+           role="status" aria-live="polite" aria-atomic="true" data-bs-delay="7000">
+        <div class="d-flex">
+          <div class="toast-body"><i class="bi {{ 'bi-check-circle' if categoria == 'success' else 'bi-info-circle' }} me-1" aria-hidden="true"></i>{{ mensagem }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   {% endwith %}
+  {% set titulo_pagina = self.titulo() %}
+  {% if current_user.is_authenticated and secao and titulo_pagina != secao.rotulo %}
+  <nav aria-label="Caminho" class="d-print-none"><ol class="breadcrumb small mb-2">
+    <li class="breadcrumb-item"><a href="{{ url_for('principal.painel') }}">Início</a></li>
+    <li class="breadcrumb-item">{% if secao.endpoint %}<a href="{{ url_for(secao.endpoint) }}">{{ secao.rotulo }}</a>{% else %}{{ secao.rotulo }}{% endif %}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ titulo_pagina }}</li>
+  </ol></nav>
+  {% endif %}
   {% block conteudo %}{% endblock %}
 </main>
 <footer class="text-center text-muted small py-3 d-print-none">ExataMed v{{ versao }} · Licença Apache-2.0</footer>

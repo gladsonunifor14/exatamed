@@ -26,6 +26,9 @@ Bom saber:
 - **Esqueceu a senha?** Peça ao administrador para definir uma senha provisória.
 - Para trocar a senha a qualquer momento, clique no seu nome, no canto superior direito, e
   escolha **Alterar minha senha**.
+- Para usar o **modo escuro**, clique no seu nome e, em **Aparência**, escolha **Escuro**,
+  **Claro** ou **Automático** (segue a configuração do celular ou computador). A escolha fica
+  salva para o seu usuário. Relatórios impressos saem sempre no modo claro.
 - Para sair, clique no seu nome e escolha **Sair**. Não deixe o sistema aberto em computador
   compartilhado: tudo o que for feito fica registrado no seu nome.
 
@@ -34,11 +37,26 @@ Bom saber:
 O painel é a primeira tela depois do login. Ele mostra:
 
 - **Indicadores do dia:** itens ativos, pacientes, dispensações de hoje, consumo de hoje e valor
-  total do estoque.
-- **Itens a repor:** produtos que chegaram ao estoque mínimo, com a quantidade sugerida para compra.
-- **Lotes vencidos ou a vencer:** lotes que vencem nos próximos 90 dias (em amarelo) ou já
-  vencidos (em vermelho).
+  total do estoque. Clique num indicador para abrir a lista ou o relatório correspondente.
+- **Itens a repor:** produtos abaixo do estoque mínimo ou no ponto de pedido, com a quantidade
+  sugerida para compra (— quando o produto não tem estoque máximo definido).
+- **Lotes vencidos ou a vencer:** lotes que vencem nos próximos 90 dias, com um selo que indica a
+  faixa: vermelho até 30 dias (ou vencido), laranja até 60 e amarelo até 90. *Ver todos* abre o
+  painel de vencimentos do Dashboard.
 - **Últimas dispensações:** clique no número para abrir o comprovante.
+
+Os selos de situação (como **Em falta**, **Abaixo do mínimo** ou **Vence em 20 dias**) sempre
+trazem ícone e texto, além da cor. No alto de cada página, o caminho (por exemplo *Início ›
+Estoque › Lotes e saldos*) mostra onde você está, e o item correspondente fica destacado no menu.
+No celular, as listas de cadastros, lotes, movimentações e notas fiscais aparecem como cartões,
+com todos os campos e botões visíveis. Quando uma lista está vazia, a tela indica o próximo passo
+(por exemplo **Cadastrar paciente** ou **Registrar entrada**); se a lista estiver vazia por causa de
+um filtro ou pesquisa, use **Limpar filtros** ou **Limpar pesquisa**.
+
+Depois de salvar, a confirmação aparece no canto superior direito e some sozinha em alguns
+segundos. Mensagens de erro ficam no alto da página até você fechá-las. Antes de uma ação
+importante (excluir, descartar uma nota, estornar, aplicar ajustes de inventário), o sistema abre
+uma janela dizendo o que será afetado; escolha **Cancelar** para desistir.
 
 ![Painel do ExataMed](img/painel.png)
 
@@ -228,6 +246,10 @@ Com isso, o quadro de primeiros passos fica completo.
 6. Clique em **Registrar dispensação**. O sistema gera o **número da dispensação** no formato
    número/ano (por exemplo **00001/2026**). A numeração recomeça em 00001 a cada ano. O
    comprovante abre em seguida e pode ser impresso.
+
+A tela é dividida em três etapas numeradas: **1. Paciente**, **2. Prescrição e locais** e
+**3. Itens**. No celular, uma barra fixa no rodapé mostra o paciente escolhido, quantos itens já
+foram preenchidos e o botão **Registrar**, sem precisar rolar até o fim.
 
 Enquanto você preenche, cada item mostra o **saldo disponível na origem**, se é de **controle
 especial** e se há **conflito com as alergias** do paciente.

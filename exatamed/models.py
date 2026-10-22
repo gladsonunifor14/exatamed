@@ -92,6 +92,8 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     ADMIN = "ADMIN"
     PERFIS = {AUXILIAR: "Auxiliar de farmácia", FARMACEUTICO: "Farmacêutico(a)", ADMIN: "Administrador(a)"}
     NIVEIS = {AUXILIAR: 1, FARMACEUTICO: 2, ADMIN: 3}
+    # Aparência escolhida pelo usuário; "sistema" segue o modo claro/escuro do aparelho.
+    TEMAS = {"sistema": "Automático (do aparelho)", "claro": "Claro", "escuro": "Escuro"}
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
@@ -106,6 +108,7 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     bloqueado_ate = db.Column(db.DateTime)
     ultimo_acesso = db.Column(db.DateTime)
     ocultar_primeiros_passos = db.Column(db.Boolean, default=False, nullable=False)
+    tema = db.Column(db.String(10), default="sistema", nullable=False)
     anonimizado_em = db.Column(db.DateTime)
     # Incrementada ao trocar a senha, o perfil ou desativar o usuário: invalida as sessões abertas.
     versao_sessao = db.Column(db.Integer, default=1, nullable=False)
@@ -269,6 +272,16 @@ class Produto(TimestampMixin, db.Model):
         return sum(l.saldo for l in self.lotes)
 
     @property
+    def situacao_estoque(self):
+        """Selo da situação do saldo frente ao estoque mínimo: (status, rótulo) ou None."""
+        saldo = self.saldo
+        if saldo <= 0 and (self.estoque_minimo > 0 or self.lotes):
+            return "critico", "Em falta"
+        if self.estoque_minimo and saldo < self.estoque_minimo:
+            return "serio", "Abaixo do mínimo"
+        return None
+
+    @property
     def valor_estoque(self):
         return sum(l.saldo * l.custo_unitario for l in self.lotes)
 
@@ -321,6 +334,20 @@ class Lote(db.Model):
     @property
     def vencido(self):
         return self.validade < date.today()
+
+    @property
+    def selo_validade(self):
+        """Selo pela proximidade do vencimento (faixas de 30, 60 e 90 dias) ou None."""
+        dias = self.dias_para_vencer
+        if dias < 0:
+            return "critico", "Vencido"
+        if dias <= 30:
+            return "critico", "Vence hoje" if dias == 0 else f"Vence em {dias} dia{'s' if dias > 1 else ''}"
+        if dias <= 60:
+            return "serio", f"Vence em {dias} dias"
+        if dias <= 90:
+            return "alerta", f"Vence em {dias} dias"
+        return None
 
     @property
     def dias_para_vencer(self):

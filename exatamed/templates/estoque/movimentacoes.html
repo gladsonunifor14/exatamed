@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import select_produto, select_local %}
+{% extends "base.html" %}{% from "_macros.html" import select_produto, select_local, vazio %}
 {% block titulo %}Movimentações{% endblock %}
 {% block conteudo %}
 <h1 class="h3 mb-3"><i class="bi bi-list-ul"></i> Movimentações de estoque</h1>
@@ -9,21 +9,49 @@
     {% for k, v in tipos.items() %}<option value="{{ k }}" {{ 'selected' if filtro.tipo == k }}>{{ v }}</option>{% endfor %}</select></div>
   <div class="col-md-2"><button class="btn btn-outline-secondary w-100"><i class="bi bi-funnel"></i> Filtrar</button></div>
 </form>
-<div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
-  <thead class="table-light"><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Lote</th><th>Local</th><th>Destino</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit.</th><th class="text-end">Total</th><th>Documento / motivo</th><th>Usuário</th><th class="d-print-none"></th></tr></thead>
+{% if pagina.items %}
+<div class="card d-none d-md-block"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Lote</th><th>Local</th><th>Destino</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit.</th><th class="text-end">Total</th><th>Documento / motivo</th><th>Usuário</th><th class="d-print-none"><span class="visually-hidden">Ações</span></th></tr></thead>
   <tbody>
   {% for m in pagina.items %}
     <tr><td class="text-nowrap">{{ m.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ m.tipo_descricao }}{% if m.dispensacao_id %} <a href="{{ url_for('estoque.ver_dispensacao', id=m.dispensacao_id) }}">nº {{ m.dispensacao.numero_formatado }}</a>{% endif %}</td>
       <td>{{ m.produto }}</td><td>{{ m.lote.numero_lote }}</td><td>{{ m.localizacao }}</td><td>{{ m.destino or '' }}</td>
-      <td class="text-end {{ 'text-success' if m.quantidade > 0 else 'text-danger' }}">{{ '%+g'|format(m.quantidade) }}</td>
-      <td class="text-end">{{ m.custo_unitario|moeda }}</td><td class="text-end">{{ m.custo_total|moeda }}</td>
+      <td class="text-end text-nowrap {{ 'text-success' if m.quantidade > 0 else 'text-danger' }}">{{ '%+g'|format(m.quantidade) }}</td>
+      <td class="text-end text-nowrap">{{ m.custo_unitario|moeda }}</td><td class="text-end text-nowrap">{{ m.custo_total|moeda }}</td>
       <td>{{ m.documento or '' }}{% if m.documento and m.motivo %} · {% endif %}{{ m.motivo or '' }}</td><td>{{ m.usuario.login if m.usuario else '' }}</td>
       <td class="text-end text-nowrap d-print-none">{% if m.id in estornadas %}<span class="badge bg-secondary">Estornada</span>
         {% elif m.tipo == 'DISPENSACAO' and m.quantidade_a_devolver <= 0 %}<span class="badge bg-secondary">Devolvida</span>
-        {% elif m.tipo in estornaveis %}<a class="btn btn-sm btn-outline-danger" href="{{ url_for('estoque.estornar_movimentacao', id=m.id) }}" title="Desfazer esta movimentação (exige a senha de um farmacêutico ou administrador)"><i class="bi bi-arrow-counterclockwise"></i> Estornar</a>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="12" class="text-center text-muted py-4">Nenhuma movimentação.</td></tr>{% endfor %}
+        {% elif m.tipo in estornaveis %}<a class="btn btn-sm btn-outline-danger" href="{{ url_for('estoque.estornar_movimentacao', id=m.id) }}" title="Desfazer esta movimentação (exige a senha de um farmacêutico ou administrador)"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Estornar</a>{% endif %}</td></tr>
+  {% endfor %}
   </tbody>
 </table></div></div>
+<div class="d-md-none lista-cartoes">
+  {% for m in pagina.items %}
+  <div class="card mb-2"><div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <strong>{{ m.tipo_descricao }}{% if m.dispensacao_id %} <a href="{{ url_for('estoque.ver_dispensacao', id=m.dispensacao_id) }}">nº {{ m.dispensacao.numero_formatado }}</a>{% endif %}</strong>
+      <span class="fw-semibold text-nowrap {{ 'text-success' if m.quantidade > 0 else 'text-danger' }}">{{ '%+g'|format(m.quantidade) }} {{ m.produto.unidade_medida }}</span>
+    </div>
+    <div class="small">{{ m.produto }}</div>
+    <div class="small text-muted mb-2">{{ m.data|data('%d/%m/%Y %H:%M') }} · Lote {{ m.lote.numero_lote }} · {{ m.localizacao }}{% if m.destino %} → {{ m.destino }}{% endif %}</div>
+    <dl class="row small mb-2">
+      <dt class="col-5 text-muted fw-normal">Total</dt><dd class="col-7 mb-1">{{ m.custo_total|moeda }}</dd>
+      {% if m.documento or m.motivo %}<dt class="col-5 text-muted fw-normal">Documento / motivo</dt><dd class="col-7 mb-1">{{ m.documento or '' }}{% if m.documento and m.motivo %} · {% endif %}{{ m.motivo or '' }}</dd>{% endif %}
+      {% if m.usuario %}<dt class="col-5 text-muted fw-normal">Usuário</dt><dd class="col-7 mb-1">{{ m.usuario.login }}</dd>{% endif %}
+    </dl>
+    {% if m.id in estornadas %}<span class="badge bg-secondary">Estornada</span>
+    {% elif m.tipo == 'DISPENSACAO' and m.quantidade_a_devolver <= 0 %}<span class="badge bg-secondary">Devolvida</span>
+    {% elif m.tipo in estornaveis %}<a class="btn btn-sm btn-outline-danger" href="{{ url_for('estoque.estornar_movimentacao', id=m.id) }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Estornar</a>{% endif %}
+  </div></div>
+  {% endfor %}
+</div>
+{% elif filtro.produto_id or filtro.localizacao_id or filtro.tipo %}
+{{ vazio('funnel', 'Nenhuma movimentação para os filtros escolhidos.', None,
+         url_for('estoque.movimentacoes'), 'Limpar filtros', 'x-lg', secundario=True) }}
+{% else %}
+{{ vazio('list-ul', 'Nenhuma movimentação registrada ainda.', 'Entradas, saídas, transferências e dispensações aparecem aqui.',
+         url_for('estoque.entrada'), 'Registrar entrada', 'box-arrow-in-down') }}
+{% endif %}
 {% if pagina.pages > 1 %}
 <nav class="mt-3"><ul class="pagination">
   {% for n in pagina.iter_pages() %}

@@ -7,7 +7,8 @@
   <div class="mt-2 small">Revise a prescrição. Para dispensar mesmo assim, marque a confirmação abaixo e envie novamente.</div></div>
 {% endif %}
 <form method="post" class="card" id="form-dispensacao" data-url-alergias="{{ url_for('estoque.checar_alergias') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="card-body row g-3">
-  <div class="col-md-5 position-relative"><label class="form-label obrigatorio" for="paciente-busca">Paciente</label>
+  <div class="col-12"><h2 class="h6 secao-form mt-0"><span class="etapa" aria-hidden="true">1</span> Paciente</h2></div>
+  <div class="col-md-7 col-lg-6 position-relative"><label class="form-label obrigatorio" for="paciente-busca">Paciente</label>
     <input type="hidden" name="paciente_id" id="paciente" value="{{ paciente_selecionado.id if paciente_selecionado else '' }}"
       data-alergias="{{ paciente_selecionado.alergias or '' if paciente_selecionado else '' }}">
     <input class="form-control" id="paciente-busca" autocomplete="off" required
@@ -16,7 +17,9 @@
       data-url="{{ url_for('estoque.buscar_pacientes') }}" role="combobox" aria-expanded="false" aria-controls="paciente-resultados">
     <div class="list-group position-absolute w-100 shadow-sm busca-resultados" id="paciente-resultados" role="listbox" hidden></div>
     <div class="form-text" id="info-paciente" aria-live="polite"></div></div>
-  <div class="col-md-4"><label class="form-label">Médico prescritor</label>
+
+  <div class="col-12"><h2 class="h6 secao-form"><span class="etapa" aria-hidden="true">2</span> Prescrição e locais</h2></div>
+  <div class="col-md-6 col-lg-4"><label class="form-label">Médico prescritor</label>
     <select class="form-select" name="medico_id"><option value="">—</option>
       {% for m in medicos %}<option value="{{ m.id }}" {% if form.medico_id == m.id|string %}selected{% endif %}>{{ m }}</option>{% endfor %}
     </select><div class="form-text">Obrigatório para itens de controle especial{% if not current_user.pode(Usuario.FARMACEUTICO) %}, que só o farmacêutico pode dispensar{% endif %}.</div></div>
@@ -30,17 +33,17 @@
     <div class="form-text">Altere só para lançamento retroativo. Data futura não é aceita.</div></div>
   <div class="col-md-3"><label class="form-label">Responsável</label><input class="form-control" value="{{ current_user.nome }}" disabled></div>
 
-  <div class="col-12"><h2 class="h6 secao-form">Itens</h2>
-    <table class="table table-sm align-middle" id="itens">
+  <div class="col-12"><h2 class="h6 secao-form"><span class="etapa" aria-hidden="true">3</span> Itens</h2>
+    <table class="table table-sm align-middle itens-dispensacao" id="itens">
       <thead><tr><th style="width:65%">Medicamento / material</th><th>Quantidade</th><th></th></tr></thead>
       <tbody>
       {% set produtos_form = form.getlist('item_produto') if form else [] %}
       {% set qtds_form = form.getlist('item_quantidade') if form else [] %}
       {% for i in range([produtos_form|length, 1]|max) %}
         <tr class="item">
-          <td>{{ select_produto(produtos, 'item_produto', produtos_form[i] if produtos_form else None, obrigatorio=False) }}<div class="small aviso"></div></td>
-          <td><input class="form-control" name="item_quantidade" inputmode="decimal" value="{{ qtds_form[i] if qtds_form else '' }}"></td>
-          <td><button type="button" class="btn btn-sm btn-outline-danger remover"><i class="bi bi-x-lg"></i></button></td>
+          <td>{{ select_produto(produtos, 'item_produto', produtos_form[i] if produtos_form else None, obrigatorio=False, rotulo='Medicamento ou material') }}<div class="small aviso"></div></td>
+          <td><input class="form-control" name="item_quantidade" inputmode="decimal" placeholder="Quantidade" aria-label="Quantidade" value="{{ qtds_form[i] if qtds_form else '' }}"></td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger remover" title="Remover item" aria-label="Remover item"><i class="bi bi-x-lg" aria-hidden="true"></i></button></td>
         </tr>
       {% endfor %}
       </tbody>
@@ -54,7 +57,15 @@
   <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" name="confirmar_alergia" id="confirmar_alergia">
     <label class="form-check-label text-danger fw-semibold" for="confirmar_alergia">Estou ciente do alerta de alergia e confirmo a dispensação conforme prescrição médica.</label></div></div>
   {% endif %}
-</div><div class="card-footer text-end"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Registrar dispensação</button></div></form>
+</div><div class="card-footer text-end d-none d-md-block"><button class="btn btn-exata"><i class="bi bi-check-lg"></i> Registrar dispensação</button></div></form>
+
+{# Celular: resumo e botão sempre à vista, sem rolar até o fim do formulário. #}
+<div class="barra-acao d-md-none d-print-none">
+  <div class="small lh-sm text-truncate" id="resumo-dispensacao" aria-live="polite">
+    <strong id="resumo-itens">Nenhum item</strong><div class="text-muted text-truncate" id="resumo-paciente">Paciente não selecionado</div></div>
+  <button class="btn btn-exata text-nowrap" form="form-dispensacao"><i class="bi bi-check-lg" aria-hidden="true"></i> Registrar</button>
+</div>
+<div class="barra-acao-espaco d-md-none"></div>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dispensacao.js') }}"></script>

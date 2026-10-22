@@ -3,6 +3,41 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.8.0] — 2026-10-22
+
+### Adicionado
+- **Modo escuro**: em *seu nome › Aparência*, escolha Claro, Escuro ou Automático (segue o
+  aparelho). A escolha fica salva para o usuário; os gráficos do Dashboard usam cores próprias para
+  o fundo escuro e a impressão sai sempre no modo claro.
+- Telas sem dados com ícone, frase curta e o próximo passo (por exemplo *Cadastrar paciente*,
+  *Registrar entrada*, *Importar XML*); listas filtradas sem resultado oferecem *Limpar filtros*.
+
+### Alterado
+- Confirmações em janela do próprio sistema, no lugar da caixa do navegador, dizendo o que será
+  afetado (por exemplo o nome do registro a excluir); ações sem volta com botão vermelho.
+- Avisos de sucesso aparecem no canto da tela e somem sozinhos; mensagens de erro e alerta
+  continuam fixas até serem fechadas.
+- Dispensação organizada em etapas (1. Paciente, 2. Prescrição e locais, 3. Itens). No celular, os
+  itens ficam empilhados e uma barra fixa no rodapé mostra o paciente, a quantidade de itens e o
+  botão **Registrar**.
+
+## [2.7.0] — 2026-10-22
+
+### Alterado
+- Listas de cadastros, lotes, movimentações e notas fiscais em cartões no celular (sem colunas
+  cortadas), com contagem de registros.
+- Selos de situação com ícone e texto: **Em falta** e **Abaixo do mínimo** ao lado do saldo dos
+  produtos; validade dos lotes por faixa (vencido, até 30, 60 e 90 dias) no painel e em Lotes.
+- Painel: indicadores clicáveis, quadros de reposição e vencimentos sem cores de linha uniformes e
+  com link para o Dashboard.
+- Item do menu da seção atual destacado e caminho de navegação no alto das páginas.
+- Botões só com ícone com dica e rótulo acessível; foco visível para navegação pelo teclado.
+- Links, paginação e botões na cor da marca; números alinhados em coluna nas tabelas.
+
+### Corrigido
+- "Itens a repor" no painel omitia produtos abaixo do mínimo sem estoque máximo definido e dizia
+  que todos estavam acima do mínimo.
+
 ## [2.6.0] — 2026-10-22
 
 ### Adicionado
