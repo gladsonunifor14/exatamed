@@ -93,7 +93,7 @@
 
 {% if editavel %}
 <div class="d-flex flex-wrap gap-2 justify-content-end mb-4">
-  <button class="btn btn-outline-danger" form="form-descartar" data-confirmar="Descartar esta nota? Ela poderá ser enviada de novo depois.">Descartar nota</button>
+  <button class="btn btn-outline-danger" form="form-descartar" data-confirmar="A {{ nota.documento }} será marcada como descartada e nada entra no estoque. Ela poderá ser enviada de novo depois." data-confirmar-titulo="Descartar nota fiscal" data-confirmar-botao="Descartar nota" data-confirmar-perigo>Descartar nota</button>
   <button class="btn btn-exata"><i class="bi bi-check2-all"></i> Confirmar entrada no estoque</button>
 </div>
 </form>

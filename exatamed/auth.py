@@ -223,6 +223,17 @@ def minha_senha():
     return render_template("auth/minha_senha.html")
 
 
+@bp.route("/minha-aparencia", methods=["POST"])
+@login_required
+def meu_tema():
+    tema = request.form.get("tema")
+    if tema not in Usuario.TEMAS:
+        abort(400)
+    current_user.tema = tema
+    db.session.commit()
+    return redirect(_destino_seguro(request.form.get("voltar")) or url_for("principal.painel"))
+
+
 # --------------------------------------------------------------------------- usuários (admin)
 
 @bp.route("/usuarios/")

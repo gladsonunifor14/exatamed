@@ -28,7 +28,7 @@
 <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Não é possível estornar: {{ impedimento }}.</div>
 <a class="btn btn-outline-secondary" href="{{ url_for('estoque.movimentacoes', produto_id=mov.produto_id) }}"><i class="bi bi-arrow-left"></i> Movimentações</a>
 {% else %}
-<form method="post" class="card" autocomplete="off" data-confirmar="Confirmar o estorno desta movimentação?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<form method="post" class="card" autocomplete="off" data-confirmar="Serão registrados {{ partes|length }} lançamento(s) inverso(s) de {{ mov.produto }}, alterando o saldo do lote. A movimentação original continua no histórico." data-confirmar-titulo="Estornar movimentação" data-confirmar-botao="Estornar"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="card-body row g-3">
     <div class="col-12"><label class="form-label obrigatorio" for="motivo">Motivo do estorno</label>
       <input class="form-control" id="motivo" name="motivo" maxlength="140" required value="{{ form.motivo if form else '' }}"

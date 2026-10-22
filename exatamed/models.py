@@ -92,6 +92,8 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     ADMIN = "ADMIN"
     PERFIS = {AUXILIAR: "Auxiliar de farmácia", FARMACEUTICO: "Farmacêutico(a)", ADMIN: "Administrador(a)"}
     NIVEIS = {AUXILIAR: 1, FARMACEUTICO: 2, ADMIN: 3}
+    # Aparência escolhida pelo usuário; "sistema" segue o modo claro/escuro do aparelho.
+    TEMAS = {"sistema": "Automático (do aparelho)", "claro": "Claro", "escuro": "Escuro"}
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(200), nullable=False)
@@ -106,6 +108,7 @@ class Usuario(UserMixin, TimestampMixin, db.Model):
     bloqueado_ate = db.Column(db.DateTime)
     ultimo_acesso = db.Column(db.DateTime)
     ocultar_primeiros_passos = db.Column(db.Boolean, default=False, nullable=False)
+    tema = db.Column(db.String(10), default="sistema", nullable=False)
     anonimizado_em = db.Column(db.DateTime)
     # Incrementada ao trocar a senha, o perfil ou desativar o usuário: invalida as sessões abertas.
     versao_sessao = db.Column(db.Integer, default=1, nullable=False)

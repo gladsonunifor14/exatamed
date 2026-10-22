@@ -13,7 +13,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Localizacao, Usuario, db
 
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 
 CHAVE_PADRAO = "dev-troque-esta-chave"
 LOCAIS_PRINCIPAIS = [
@@ -59,6 +59,7 @@ COLUNAS_NOVAS = [
     ("produtos", "gtin", "VARCHAR(14)"),
     ("produtos", "registro_anvisa", "VARCHAR(20)"),
     ("lotes", "nota_fiscal_id", "INTEGER REFERENCES notas_fiscais(id)"),
+    ("usuarios", "tema", "VARCHAR(10) NOT NULL DEFAULT 'sistema'"),
 ]
 
 

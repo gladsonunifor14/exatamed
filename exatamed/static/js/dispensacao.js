@@ -50,6 +50,7 @@
     fecharResultados();
     mostrarInfoPaciente();
     verificarTodos();
+    atualizarResumo();
   }
 
   async function pesquisar() {
@@ -125,12 +126,30 @@
 
   function verificarTodos() { tabela.querySelectorAll('tr.item').forEach(verificar); }
 
+  // ---------------------------------------------------------------- resumo da barra do celular
+  const resumoItens = document.getElementById('resumo-itens');
+  const resumoPaciente = document.getElementById('resumo-paciente');
+
+  function atualizarResumo() {
+    if (!resumoItens) return;
+    let itens = 0;
+    tabela.querySelectorAll('tr.item').forEach(function (linha) {
+      const quantidade = parseFloat((linha.querySelector('input').value || '').replace(',', '.'));
+      if (linha.querySelector('select').value && quantidade > 0) itens += 1;
+    });
+    resumoItens.textContent = itens ? itens + (itens === 1 ? ' item' : ' itens') + ' na dispensação' : 'Nenhum item';
+    resumoPaciente.textContent = pacienteId.value ? busca.value : 'Paciente não selecionado';
+  }
+  formulario.addEventListener('input', atualizarResumo);
+  formulario.addEventListener('change', atualizarResumo);
+
   tabela.addEventListener('change', function (e) { if (e.target.tagName === 'SELECT') verificar(e.target.closest('tr')); });
   tabela.addEventListener('click', function (e) {
     const botao = e.target.closest('.remover');
     if (!botao) return;
     if (tabela.querySelectorAll('tr.item').length > 1) botao.closest('tr').remove();
     else botao.closest('tr').querySelectorAll('select, input').forEach(function (el) { el.value = ''; });
+    atualizarResumo();
   });
   document.getElementById('adicionar').addEventListener('click', function () {
     const nova = tabela.querySelector('tr.item').cloneNode(true);
@@ -142,4 +161,5 @@
   if (!pacienteId.value && busca.value) busca.value = '';
   mostrarInfoPaciente();
   verificarTodos();
+  atualizarResumo();
 })();

@@ -3,6 +3,24 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.8.0] — 2026-10-22
+
+### Adicionado
+- **Modo escuro**: em *seu nome › Aparência*, escolha Claro, Escuro ou Automático (segue o
+  aparelho). A escolha fica salva para o usuário; os gráficos do Dashboard usam cores próprias para
+  o fundo escuro e a impressão sai sempre no modo claro.
+- Telas sem dados com ícone, frase curta e o próximo passo (por exemplo *Cadastrar paciente*,
+  *Registrar entrada*, *Importar XML*); listas filtradas sem resultado oferecem *Limpar filtros*.
+
+### Alterado
+- Confirmações em janela do próprio sistema, no lugar da caixa do navegador, dizendo o que será
+  afetado (por exemplo o nome do registro a excluir); ações sem volta com botão vermelho.
+- Avisos de sucesso aparecem no canto da tela e somem sozinhos; mensagens de erro e alerta
+  continuam fixas até serem fechadas.
+- Dispensação organizada em etapas (1. Paciente, 2. Prescrição e locais, 3. Itens). No celular, os
+  itens ficam empilhados e uma barra fixa no rodapé mostra o paciente, a quantidade de itens e o
+  botão **Registrar**.
+
 ## [2.7.0] — 2026-10-22
 
 ### Alterado

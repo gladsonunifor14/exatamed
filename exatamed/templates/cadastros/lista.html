@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import selo, rotulo_icone %}
+{% extends "base.html" %}{% from "_macros.html" import selo, rotulo_icone, vazio %}
 {% block titulo %}{{ cadastro.titulo }}{% endblock %}
 {% macro valor(v) -%}
   {%- if v is sameas true %}<i class="bi bi-check-circle-fill text-success" aria-hidden="true"></i><span class="visually-hidden">Sim</span>
@@ -9,7 +9,7 @@
   {% for rotulo, endpoint, param in cadastro.links %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for(endpoint, **{param: obj.id}) }}">{{ rotulo }}</a>{% endfor %}
   {% if obj.anonimizado %}<span class="badge bg-dark me-1">Anonimizado</span>{% endif %}
   {% if current_user.pode(cadastro.perfil_edicao) and not obj.anonimizado %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('cadastros.editar', chave=cadastro.chave, id=obj.id) }}" {{ rotulo_icone('Editar') }}><i class="bi bi-pencil" aria-hidden="true"></i>{% if rotulos_visiveis %} Editar{% endif %}</a>{% endif %}
-  {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" data-confirmar="Excluir este registro?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" {{ rotulo_icone('Excluir') }}><i class="bi bi-trash" aria-hidden="true"></i>{% if rotulos_visiveis %} Excluir{% endif %}</button></form>{% endif %}
+  {% if current_user.pode(Usuario.FARMACEUTICO) %}<form class="d-inline" method="post" action="{{ url_for('cadastros.excluir', chave=cadastro.chave, id=obj.id) }}" data-confirmar="Excluir {{ cadastro.titulo_singular|lower }} “{{ obj }}”? O registro deixa de existir e esta ação não pode ser desfeita." data-confirmar-titulo="Excluir {{ cadastro.titulo_singular|lower }}" data-confirmar-botao="Excluir" data-confirmar-perigo><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" {{ rotulo_icone('Excluir') }}><i class="bi bi-trash" aria-hidden="true"></i>{% if rotulos_visiveis %} Excluir{% endif %}</button></form>{% endif %}
 {% endmacro %}
 {% block conteudo %}
 {% set pode_editar = current_user.pode(cadastro.perfil_edicao) %}
@@ -23,6 +23,7 @@
 </div>
 {% if termo or pagina.total %}<p class="small text-muted mb-2">{{ pagina.total }} registro(s){% if termo %} para “{{ termo }}”{% endif %}</p>{% endif %}
 
+{% if pagina.items %}
 {# Computador e tablet: tabela #}
 <div class="card d-none d-md-block">
   <div class="table-responsive">
@@ -36,8 +37,6 @@
           {% endfor %}
           <td class="text-end text-nowrap">{{ acoes(obj) }}</td>
         </tr>
-      {% else %}
-        <tr><td colspan="{{ cadastro.colunas|length + 1 }}" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -59,10 +58,17 @@
     </dl>
     <div class="d-flex flex-wrap gap-1">{{ acoes(obj, rotulos_visiveis=True) }}</div>
   </div></div>
-  {% else %}
-  <div class="card"><div class="card-body text-center text-muted py-4">Nenhum registro encontrado.</div></div>
   {% endfor %}
 </div>
+{% elif termo %}
+{{ vazio('search', 'Nada encontrado para “' ~ termo ~ '”.', 'Confira a grafia ou pesquise por outro termo.',
+         url_for('cadastros.listar', chave=cadastro.chave), 'Limpar pesquisa', 'x-lg', secundario=True) }}
+{% elif pode_editar %}
+{{ vazio('inbox', cadastro.titulo ~ ': nenhum cadastro ainda.', 'Comece pelo primeiro registro.',
+         url_for('cadastros.editar', chave=cadastro.chave), 'Cadastrar ' ~ cadastro.titulo_singular|lower) }}
+{% else %}
+{{ vazio('inbox', cadastro.titulo ~ ': nenhum cadastro ainda.', 'Peça a um farmacêutico para fazer os cadastros.') }}
+{% endif %}
 
 {% if pagina.pages > 1 %}
 <nav class="mt-3" aria-label="Páginas"><ul class="pagination flex-wrap">

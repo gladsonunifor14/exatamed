@@ -84,7 +84,7 @@
         <tbody>
         {% for d in ultimas %}
           <tr><td><a href="{{ url_for('estoque.ver_dispensacao', id=d.id) }}">{{ d.numero_formatado }}</a></td><td>{{ d.data|data('%d/%m/%Y %H:%M') }}</td><td>{{ d.paciente.nome }}</td><td>{{ d.destino.nome }}</td><td>{{ d.medico.nome if d.medico else '' }}</td><td class="text-end">{{ d.custo_total|moeda }}</td></tr>
-        {% else %}<tr><td colspan="6" class="text-muted text-center py-3">Nenhuma dispensação registrada.</td></tr>{% endfor %}
+        {% else %}<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-prescription2 vazio-icone" aria-hidden="true"></i><div>Nenhuma dispensação registrada ainda.</div></td></tr>{% endfor %}
         </tbody></table></div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import select_produto, select_local %}
+{% extends "base.html" %}{% from "_macros.html" import select_produto, select_local, vazio %}
 {% block titulo %}Movimentações{% endblock %}
 {% block conteudo %}
 <h1 class="h3 mb-3"><i class="bi bi-list-ul"></i> Movimentações de estoque</h1>
@@ -9,6 +9,7 @@
     {% for k, v in tipos.items() %}<option value="{{ k }}" {{ 'selected' if filtro.tipo == k }}>{{ v }}</option>{% endfor %}</select></div>
   <div class="col-md-2"><button class="btn btn-outline-secondary w-100"><i class="bi bi-funnel"></i> Filtrar</button></div>
 </form>
+{% if pagina.items %}
 <div class="card d-none d-md-block"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
   <thead class="table-light"><tr><th>Data</th><th>Tipo</th><th>Produto</th><th>Lote</th><th>Local</th><th>Destino</th><th class="text-end">Quantidade</th><th class="text-end">Custo unit.</th><th class="text-end">Total</th><th>Documento / motivo</th><th>Usuário</th><th class="d-print-none"><span class="visually-hidden">Ações</span></th></tr></thead>
   <tbody>
@@ -21,7 +22,7 @@
       <td class="text-end text-nowrap d-print-none">{% if m.id in estornadas %}<span class="badge bg-secondary">Estornada</span>
         {% elif m.tipo == 'DISPENSACAO' and m.quantidade_a_devolver <= 0 %}<span class="badge bg-secondary">Devolvida</span>
         {% elif m.tipo in estornaveis %}<a class="btn btn-sm btn-outline-danger" href="{{ url_for('estoque.estornar_movimentacao', id=m.id) }}" title="Desfazer esta movimentação (exige a senha de um farmacêutico ou administrador)"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Estornar</a>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="12" class="text-center text-muted py-4">Nenhuma movimentação.</td></tr>{% endfor %}
+  {% endfor %}
   </tbody>
 </table></div></div>
 <div class="d-md-none lista-cartoes">
@@ -42,8 +43,15 @@
     {% elif m.tipo == 'DISPENSACAO' and m.quantidade_a_devolver <= 0 %}<span class="badge bg-secondary">Devolvida</span>
     {% elif m.tipo in estornaveis %}<a class="btn btn-sm btn-outline-danger" href="{{ url_for('estoque.estornar_movimentacao', id=m.id) }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Estornar</a>{% endif %}
   </div></div>
-  {% else %}<div class="card"><div class="card-body text-center text-muted py-4">Nenhuma movimentação.</div></div>{% endfor %}
+  {% endfor %}
 </div>
+{% elif filtro.produto_id or filtro.localizacao_id or filtro.tipo %}
+{{ vazio('funnel', 'Nenhuma movimentação para os filtros escolhidos.', None,
+         url_for('estoque.movimentacoes'), 'Limpar filtros', 'x-lg', secundario=True) }}
+{% else %}
+{{ vazio('list-ul', 'Nenhuma movimentação registrada ainda.', 'Entradas, saídas, transferências e dispensações aparecem aqui.',
+         url_for('estoque.entrada'), 'Registrar entrada', 'box-arrow-in-down') }}
+{% endif %}
 {% if pagina.pages > 1 %}
 <nav class="mt-3"><ul class="pagination">
   {% for n in pagina.iter_pages() %}

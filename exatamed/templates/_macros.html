@@ -1,5 +1,5 @@
-{% macro select_produto(produtos, nome='produto_id', selecionado=None, obrigatorio=True) %}
-<select class="form-select" name="{{ nome }}" {% if obrigatorio %}required{% endif %}>
+{% macro select_produto(produtos, nome='produto_id', selecionado=None, obrigatorio=True, rotulo=None) %}
+<select class="form-select" name="{{ nome }}" {% if obrigatorio %}required{% endif %} {% if rotulo %}aria-label="{{ rotulo }}"{% endif %}>
   <option value="">Selecione...</option>
   {% for p in produtos %}
   <option value="{{ p.id }}" {% if selecionado|string == p.id|string %}selected{% endif %}>{{ p }}{% if p.principio_ativo %} [{{ p.principio_ativo }}]{% endif %}{% if p.controle_especial %} ({{ p.controle_especial }}){% endif %}</option>
@@ -59,4 +59,14 @@
 {# Botão só com ícone: dica ao passar o mouse e rótulo para leitor de tela. #}
 {% macro rotulo_icone(texto) -%}
 title="{{ texto }}" aria-label="{{ texto }}"
+{%- endmacro %}
+
+{# Tela sem dados: ícone, frase curta e o próximo passo (botão opcional). #}
+{% macro vazio(icone, titulo, texto=None, url=None, rotulo=None, icone_botao='plus-lg', secundario=False) -%}
+<div class="card vazio"><div class="card-body text-center py-5 px-3">
+  <i class="bi bi-{{ icone }} vazio-icone" aria-hidden="true"></i>
+  <p class="fw-semibold mb-1">{{ titulo }}</p>
+  {% if texto %}<p class="text-muted small mb-3">{{ texto }}</p>{% endif %}
+  {% if url %}<a class="btn {{ 'btn-outline-secondary' if secundario else 'btn-exata' }}{{ ' mt-2' if not texto }}" href="{{ url }}"><i class="bi bi-{{ icone_botao }}" aria-hidden="true"></i> {{ rotulo }}</a>{% endif %}
+</div></div>
 {%- endmacro %}

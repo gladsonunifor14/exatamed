@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import pytest
 
 from exatamed import estoque
-from exatamed.models import Localizacao, Lote, Produto, db
+from exatamed.models import Localizacao, Lote, Produto, RegistroAuditoria, Usuario, db
 
 
 @pytest.fixture
@@ -72,5 +72,66 @@ def test_lotes_e_notas_no_celular(client, produtos):
     lotes = client.get("/estoque/lotes").get_data(as_text=True)
     assert "Vence em 20 dias" in lotes and 'class="d-md-none lista-cartoes"' in lotes
     assert 'aria-label="Bloquear lote (recall, quarentena)"' in lotes
-    for url in ("/estoque/movimentacoes", "/estoque/notas"):
-        assert 'class="d-md-none lista-cartoes"' in client.get(url).get_data(as_text=True), url
+    assert 'class="d-md-none lista-cartoes"' in client.get("/estoque/movimentacoes").get_data(as_text=True)
+    notas = client.get("/estoque/notas").get_data(as_text=True)
+    assert "lista-cartoes" not in notas and "Nenhuma nota fiscal importada ainda." in notas
+
+
+# ------------------------------------------------------------------- 2.8: confirmações, avisos, telas vazias, tema
+
+def test_confirmacao_diz_o_que_sera_afetado(client, produtos):
+    pagina = client.get("/cadastros/produtos/").get_data(as_text=True)
+    assert 'data-confirmar="Excluir medicamento / material “Abaixo”?' in pagina
+    assert 'data-confirmar-titulo="Excluir medicamento / material"' in pagina and "data-confirmar-perigo" in pagina
+    assert "window.confirm" in client.get("/static/js/app.js").get_data(as_text=True)  # só como reserva
+
+
+def test_sucesso_vira_aviso_e_erro_fica_fixo(client, anonimo):
+    dados = {"nome": "Ala Norte", "tipo": "SETOR"}
+    pagina = client.post("/cadastros/localizacoes/novo", data=dados, follow_redirects=True).get_data(as_text=True)
+    aviso = pagina.split('class="toast-container', 1)[1]
+    assert 'role="status"' in aviso and "salvo(a) com sucesso" in aviso
+    assert 'class="alert' not in pagina
+    erro = anonimo.post("/login", data={"login": "x", "senha": "errada"}).get_data(as_text=True)
+    assert 'class="alert alert-danger' in erro and 'role="alert"' in erro and "toast-container" not in erro
+
+
+def test_telas_sem_dados(client, app):
+    lotes = client.get("/estoque/lotes").get_data(as_text=True)
+    assert "Nenhum lote com saldo em estoque." in lotes and 'href="/estoque/entrada"' in lotes
+    produtos = client.get("/cadastros/produtos/").get_data(as_text=True)
+    assert "nenhum cadastro ainda" in produtos and "Cadastrar medicamento / material" in produtos
+    busca = client.get("/cadastros/pacientes/?q=zzz").get_data(as_text=True)
+    assert "Nada encontrado para “zzz”." in busca and "Limpar pesquisa" in busca
+    filtrado = client.get("/estoque/movimentacoes?tipo=ENTRADA").get_data(as_text=True)
+    assert "Nenhuma movimentação para os filtros escolhidos." in filtrado and "Limpar filtros" in filtrado
+    assert "Nenhuma dispensação registrada ainda." in client.get("/").get_data(as_text=True)
+
+
+def test_dispensacao_em_etapas_com_barra_no_celular(client):
+    pagina = client.get("/estoque/dispensacao").get_data(as_text=True)
+    for etapa in ("1</span> Paciente", "2</span> Prescrição e locais", "3</span> Itens"):
+        assert etapa in pagina
+    barra = pagina.split('class="barra-acao', 1)[1].split("</div>\n<div", 1)[0]
+    assert 'form="form-dispensacao"' in barra and 'id="resumo-itens"' in barra
+    assert 'aria-label="Medicamento ou material"' in pagina
+
+
+def test_tema_por_usuario(client, app):
+    pagina = client.get("/").get_data(as_text=True)
+    assert 'data-tema="sistema"' in pagina and "/static/js/tema.js" in pagina.split("</head>")[0]
+    auditoria = RegistroAuditoria.query.count()
+    resposta = client.post("/minha-aparencia", data={"tema": "escuro", "voltar": "/estoque/lotes?x=1"})
+    assert resposta.status_code == 302 and resposta.location.endswith("/estoque/lotes?x=1")
+    assert Usuario.query.filter_by(login="admin").one().tema == "escuro"
+    assert RegistroAuditoria.query.count() == auditoria  # preferência de tela não entra na trilha
+    pagina = client.get("/").get_data(as_text=True)
+    assert 'data-tema="escuro"' in pagina and 'value="escuro"\n                  aria-pressed="true"' in pagina
+    assert client.post("/minha-aparencia", data={"tema": "roxo"}).status_code == 400
+    externo = client.post("/minha-aparencia", data={"tema": "claro", "voltar": "//site.com/"})
+    assert externo.location.endswith("/") and "site.com" not in externo.location
+
+
+def test_tema_exige_login(anonimo):
+    assert anonimo.post("/minha-aparencia", data={"tema": "escuro"}).status_code == 302
+    assert 'data-tema="sistema"' in anonimo.get("/login").get_data(as_text=True)
