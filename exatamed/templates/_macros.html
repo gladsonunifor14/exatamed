@@ -70,3 +70,12 @@ title="{{ texto }}" aria-label="{{ texto }}"
   {% if url %}<a class="btn {{ 'btn-outline-secondary' if secundario else 'btn-exata' }}{{ ' mt-2' if not texto }}" href="{{ url }}"><i class="bi bi-{{ icone_botao }}" aria-hidden="true"></i> {{ rotulo }}</a>{% endif %}
 </div></div>
 {%- endmacro %}
+
+{# Abas de Administração › Registros de auditoria. #}
+{% macro abas_auditoria(ativa) -%}
+<ul class="nav nav-tabs mb-3 d-print-none">
+  {% for endpoint, icone, rotulo in [('auditoria.trilha', 'journal-check', 'Trilha de alterações'), ('lgpd.acessos', 'shield-lock', 'Acessos a dados pessoais (LGPD)'), ('auditoria.integridade', 'shield-check', 'Integridade')] %}
+  <li class="nav-item"><a class="nav-link {{ 'active' if endpoint == ativa }}" href="{{ url_for(endpoint) }}" {% if endpoint == ativa %}aria-current="page"{% endif %}><i class="bi bi-{{ icone }}" aria-hidden="true"></i> {{ rotulo }}</a></li>
+  {% endfor %}
+</ul>
+{%- endmacro %}

@@ -26,9 +26,10 @@ Bom saber:
 - **Esqueceu a senha?** Peça ao administrador para definir uma senha provisória.
 - Para trocar a senha a qualquer momento, clique no seu nome, no canto superior direito, e
   escolha **Alterar minha senha**.
-- Para usar o **modo escuro**, clique no seu nome e, em **Aparência**, escolha **Escuro**,
-  **Claro** ou **Automático** (segue a configuração do celular ou computador). A escolha fica
-  salva para o seu usuário. Relatórios impressos saem sempre no modo claro.
+- Em **Configurações** (no fim do menu lateral ou no menu com o seu nome) ficam os dados da sua
+  conta, a troca de senha e a **aparência**: **Claro**, **Escuro** ou **Automático** (segue a
+  configuração do celular ou computador). A escolha fica salva para o seu usuário. Relatórios
+  impressos saem sempre no modo claro.
 - Para sair, clique no seu nome e escolha **Sair**. Não deixe o sistema aberto em computador
   compartilhado: tudo o que for feito fica registrado no seu nome.
 
@@ -47,7 +48,7 @@ O painel é a primeira tela depois do login. Ele mostra:
 
 Os selos de situação (como **Em falta**, **Abaixo do mínimo** ou **Vence em 20 dias**) sempre
 trazem ícone e texto, além da cor. No alto de cada página, o caminho (por exemplo *Início ›
-Estoque › Lotes e saldos*) mostra onde você está, e o item correspondente fica destacado no menu.
+Estoque › Lotes e validades*) mostra onde você está, e o item correspondente fica destacado no menu.
 No celular, as listas de cadastros, lotes, movimentações e notas fiscais aparecem como cartões,
 com todos os campos e botões visíveis. Quando uma lista está vazia, a tela indica o próximo passo
 (por exemplo **Cadastrar paciente** ou **Registrar entrada**); se a lista estiver vazia por causa de
@@ -60,15 +61,19 @@ uma janela dizendo o que será afetado; escolha **Cancelar** para desistir.
 
 ![Painel do ExataMed](img/painel.png)
 
-O menu superior dá acesso a todas as funções:
+O **menu lateral**, à esquerda, dá acesso a todas as funções, agrupadas em blocos. No celular e
+no tablet, ele abre pelo botão **☰** no alto da tela.
 
-| Menu | O que tem |
+| Bloco | O que tem |
 |---|---|
-| **Cadastros** | Pacientes, médicos, medicamentos e materiais, localizações |
-| **Estoque** | Entrada, saída avulsa, transferência, lotes e saldos, movimentações, contagem de inventário |
-| **Dispensação** | Registro de dispensação para um paciente |
-| **Relatórios** | As seis análises gerenciais |
-| **Ajuda** | Este guia |
+| **Visão geral** | Dashboard e Relatórios |
+| **Operações** | Dispensações, Entradas de estoque, Saídas avulsas, Transferências e Inventário |
+| **Estoque** | Posição de estoque, Lotes e validades, Movimentações e Notas fiscais |
+| **Cadastros** | Pacientes, Médicos, Medicamentos e materiais e Locais de consumo |
+| **Administração** | Usuários e permissões, Registros de auditoria e Ajuda |
+| **Configurações** | Sua conta, senha e aparência |
+
+Para voltar ao painel, clique em **ExataMed**, no alto do menu.
 
 O menu mostra apenas as funções permitidas para o seu perfil. Veja
 [O que cada perfil pode fazer](#o-que-cada-perfil-pode-fazer).
@@ -94,12 +99,12 @@ registrada em nome de quem a fez. Veja [Gestão de usuários](#gestão-de-usuár
 O sistema já vem com a **Farmácia SUS** e a **Farmácia Particular**, que são os estoques
 principais. Cadastre os locais para onde os itens são dispensados ou transferidos:
 
-1. Acesse **Cadastros → Localizações → Novo**.
+1. Acesse **Cadastros → Locais de consumo → Novo**.
 2. Informe o nome (por exemplo *Leito 1*, *Sala de parada*, *Sala de recuperação*, *UTI*) e, se
    quiser, uma descrição.
 
 Um local que já tem movimentações não pode ser excluído, mas pode ser **desativado**: basta
-desmarcar *Ativa*. Incluir, editar e excluir localizações é permitido apenas aos perfis
+desmarcar *Ativa*. Incluir, editar e excluir locais de consumo é permitido apenas aos perfis
 **farmacêutico** e **administrador**; o auxiliar só consulta.
 
 ### 3. Medicamentos e materiais
@@ -152,7 +157,7 @@ for encontrado ou a consulta não responder, preencha o endereço manualmente.
 
 Ao receber produtos (nota fiscal, empenho, doação):
 
-1. Acesse **Estoque → Entrada**.
+1. Acesse **Operações → Entradas de estoque**.
 2. Escolha o produto e o local onde ele será guardado (normalmente a Farmácia SUS ou a Particular).
 3. Informe o **lote**, a **validade**, a **quantidade** e o **custo unitário**. O número do documento é opcional.
 4. Clique em **Registrar entrada**.
@@ -164,7 +169,7 @@ validades e os custos são lidos do arquivo, sem digitação.
 
 ## Importação do XML da NF-e
 
-Em **Estoque → Entrada**, no quadro **Importar XML da NF-e**, escolha o arquivo `.xml` que o
+Em **Operações → Entradas de estoque**, no quadro **Importar XML da NF-e**, escolha o arquivo `.xml` que o
 fornecedor enviou e clique em **Ler XML**. O sistema confere o arquivo e abre a tela de
 conferência. Nada entra no estoque antes da sua confirmação.
 
@@ -198,7 +203,7 @@ ICMS-ST, menos o desconto, dividido pela quantidade (e pelo fator).
 
 **Depois da importação:** os lotes ficam ligados à nota, o documento das movimentações é
 *NF-e número/série* e o sistema memoriza o produto e o fator de cada código do fornecedor. O XML
-original fica guardado. Em **Estoque → Notas fiscais (NF-e)** estão todas as notas, com a
+original fica guardado. Em **Estoque → Notas fiscais** estão todas as notas, com a
 situação de cada uma. Uma nota ainda em conferência pode ser **descartada** e enviada de novo depois.
 
 ### Cadastrar o produto durante a conferência
@@ -215,7 +220,7 @@ da unidade da nota, ajuste o fator. O auxiliar não vê o botão: pede a um farm
 
 ### Excluir notas descartadas
 
-Em **Estoque → Notas fiscais (NF-e)**, o farmacêutico pode **excluir** uma nota **descartada**
+Em **Estoque → Notas fiscais**, o farmacêutico pode **excluir** uma nota **descartada**
 (botão *Excluir*, com confirmação). A exclusão fica registrada na trilha de auditoria.
 
 - **Nota importada não pode ser excluída** (cadeado na lista): ela é o documento de origem dos
@@ -229,7 +234,7 @@ Com isso, o quadro de primeiros passos fica completo.
 
 ## Dispensação no dia a dia
 
-1. Acesse **Dispensação** no menu.
+1. Acesse **Operações → Dispensações** no menu lateral.
 2. No campo **Paciente**, digite parte do nome, do CPF ou do Cartão SUS (pelo menos 2
    caracteres) e clique no paciente na lista. A lista mostra o CPF parcialmente oculto, a data
    de nascimento e as **alergias**, para conferir que é a pessoa certa. As alergias também
@@ -278,7 +283,7 @@ seguinte), altere a data e a hora para quando o item foi entregue.
 |---|---|
 | **Alerta de alergia** | Revise a prescrição com o médico. Se a dispensação for mantida, um **farmacêutico** marca a confirmação de ciência e envia novamente. A confirmação fica registrada na observação |
 | **Controle especial** | Informe o médico e o número da prescrição. Se você é auxiliar, peça a um farmacêutico para fazer a dispensação |
-| **Saldo insuficiente** | A origem não tem quantidade suficiente em lotes dentro da validade e não bloqueados. Confira em **Estoque → Lotes e saldos** ou faça uma transferência de outro local |
+| **Saldo insuficiente** | A origem não tem quantidade suficiente em lotes dentro da validade e não bloqueados. Confira em **Estoque → Lotes e validades** ou **Estoque → Posição de estoque** ou faça uma transferência de outro local |
 | **O saldo do lote mudou durante a operação** | Outra pessoa movimentou o mesmo lote no mesmo instante. Nada foi gravado: confira e registre de novo |
 | **Local igual à origem** | O local de dispensação precisa ser diferente da farmácia de origem |
 | **Origem não permitida** | A dispensação só sai da Farmácia SUS ou da Farmácia Particular. Para atender um setor a partir do estoque dele, faça antes uma transferência de volta para a farmácia |
@@ -313,11 +318,12 @@ devolvido). Não é possível devolver mais do que foi dispensado.
 
 | Operação | Onde | Quem | Para que serve |
 |---|---|---|---|
-| **Transferência** | Estoque → Transferência | Todos | Mover itens entre locais (por exemplo, da farmácia para a UTI). Lote, validade e custo são mantidos |
-| **Saída avulsa** | Estoque → Saída avulsa | Farmacêutico | Consumo de setor, perda, avaria, quebra ou devolução ao fornecedor. O motivo é obrigatório |
-| **Contagem de inventário** | Estoque → Contagem de inventário | Farmacêutico | Conferir o estoque físico de um local e corrigir as diferenças |
-| **Bloqueio de lote** | Estoque → Lotes e saldos → cadeado | Farmacêutico | Recall do fabricante, alerta ou interdição sanitária, quarentena |
-| **Lotes e saldos** | Estoque → Lotes e saldos | Todos | Ver o saldo de cada lote, com validade e custo |
+| **Transferência** | Operações → Transferências | Todos | Mover itens entre locais (por exemplo, da farmácia para a UTI). Lote, validade e custo são mantidos |
+| **Saída avulsa** | Operações → Saídas avulsas | Farmacêutico | Consumo de setor, perda, avaria, quebra ou devolução ao fornecedor. O motivo é obrigatório |
+| **Contagem de inventário** | Operações → Inventário | Farmacêutico | Conferir o estoque físico de um local e corrigir as diferenças |
+| **Bloqueio de lote** | Estoque → Lotes e validades → cadeado | Farmacêutico | Recall do fabricante, alerta ou interdição sanitária, quarentena |
+| **Posição de estoque** | Estoque → Posição de estoque | Todos | Ver o saldo de cada produto por farmácia, frente ao estoque mínimo, com a próxima validade e o valor PEPS. Filtros por produto, local e situação |
+| **Lotes e validades** | Estoque → Lotes e validades | Todos | Ver o saldo de cada lote, com validade e custo |
 | **Movimentações** | Estoque → Movimentações | Todos | Histórico completo, com data, tipo, quantidade, custo e usuário |
 | **Estorno de movimentação** | Estoque → Movimentações → Estornar | Todos, com a senha de um farmacêutico ou administrador | Desfazer uma movimentação lançada por engano |
 
@@ -332,7 +338,7 @@ nesse lote.
 
 **Bloqueio de lote, passo a passo:**
 
-1. Em **Estoque → Lotes e saldos**, clique no cadeado ao lado do lote.
+1. Em **Estoque → Lotes e validades**, clique no cadeado ao lado do lote.
 2. Confira os locais onde o lote está (o bloqueio vale para **todos** eles), informe o motivo
    (por exemplo *recall do fabricante, alerta ANVISA nº 123/2026*) e clique em **Bloquear lote**.
 
@@ -411,7 +417,7 @@ filtros e um resumo de cada indicador; clique num resumo para ir ao painel corre
 | Filtro | Vale para |
 |---|---|
 | **Agrupar custo por** (dia, mês ou ano), **De** e **Até** | Evolução do custo; o período vale também para a curva ABC, o giro e as devoluções |
-| **Médico** e **Localização** | Evolução do custo |
+| **Médico** e **Local de consumo** | Evolução do custo |
 | **Curva ABC** (medicamentos, materiais ou ambos) | Curva ABC |
 
 Vencimentos, ruptura e estoque de segurança mostram sempre a **posição de hoje**. Ao passar o mouse
@@ -422,7 +428,7 @@ números de cada gráfico. Use **Imprimir** para levar o dashboard a uma reuniã
 
 | Indicador | Como é calculado |
 |---|---|
-| **Evolução do custo** | Custo PEPS do consumo por dia, mês ou ano: dispensações menos devoluções, mais saídas avulsas (menos as estornadas). Com **médico**, só as dispensações prescritas por ele. Com **localização**, o que foi dispensado para aquele local ou saiu dele |
+| **Evolução do custo** | Custo PEPS do consumo por dia, mês ou ano: dispensações menos devoluções, mais saídas avulsas (menos as estornadas). Com **médico**, só as dispensações prescritas por ele. Com **local de consumo**, o que foi dispensado para aquele local ou saiu dele |
 | **Curva ABC** | Itens ordenados pelo valor consumido no período. **A**: itens que somam os primeiros 80% do valor; **B**: até 95%; **C**: os 5% finais. Os itens A pedem controle mais rigoroso de compra e estoque |
 | **Itens próximos ao vencimento** | Lotes com saldo que vencem em até 30, 60 e 90 dias, com o valor parado em cada faixa. Lotes já vencidos com saldo aparecem num alerta: dê baixa pela contagem de inventário |
 | **Taxa de ruptura** | Itens em falta ÷ itens monitorados. Em falta: sem saldo utilizável (não vencido nem bloqueado) em nenhum local. Monitorados: ativos com estoque mínimo definido ou que já tiveram movimentação |
@@ -449,7 +455,8 @@ O comprovante de dispensação mostra exatamente quais lotes foram usados e o cu
 
 ## Gestão de usuários (administrador)
 
-Acesse o menu com o seu nome → **Usuários**.
+Acesse **Administração → Usuários e permissões**. O quadro no fim da tela resume o que cada
+perfil pode fazer.
 
 - **Novo usuário:** informe nome, login, perfil e uma senha inicial. Essa senha é provisória: a
   pessoa precisa trocá-la no primeiro acesso.
@@ -485,7 +492,8 @@ traz o Cartão SUS completo para faturamento). A busca por CPF continua funciona
 O sistema registra quem **visualizou** a ficha completa de um paciente, médico ou usuário, quem
 **incluiu** ou **alterou** um cadastro, quem abriu um comprovante de dispensação, quem
 **exportou** relatório com dados de pacientes e quem **anonimizou** um cadastro, com data, hora e
-endereço IP. O administrador consulta esse registro em seu nome → **LGPD: registro de acessos**,
+endereço IP. O administrador consulta esse registro em **Administração → Registros de auditoria**, aba
+**Acessos a dados pessoais (LGPD)**,
 com filtros por usuário, tipo de dado e ação.
 
 ![Registro de acessos](img/lgpd_acessos.png)
@@ -530,14 +538,15 @@ O que acontece:
 
 O ExataMed foi feito para ser auditável:
 
-- **Trilha de auditoria** (seu nome → *Trilha de auditoria*): toda inclusão, alteração e exclusão
+- **Trilha de alterações** (*Administração → Registros de auditoria*): toda inclusão, alteração e exclusão
   de produtos, lotes, locais, pacientes, médicos, usuários e dispensações, com data, hora, usuário
   e os valores de antes e depois. Para dados pessoais, a trilha mostra só que o campo foi
   alterado, sem o valor.
 - **Registros selados**: movimentações de estoque, acessos a dados pessoais e a própria trilha
   são encadeados por assinaturas digitais. Se alguém alterar, apagar ou incluir um registro
   diretamente no banco de dados, sem passar pelo sistema, a verificação aponta onde.
-- **Integridade dos registros** (seu nome → *Integridade dos registros* → **Verificar agora**):
+- **Integridade dos registros** (*Administração → Registros de auditoria*, aba *Integridade* →
+  **Verificar agora**):
   confere todas as assinaturas e se o saldo de cada lote bate com as movimentações.
 
 ![Integridade dos registros](img/integridade.png)
@@ -556,7 +565,7 @@ que seguem o procedimento do runbook de operação.
 | Dispensar itens de controle especial | | ✔ | ✔ |
 | Liberar dispensação com alerta de alergia | | ✔ | ✔ |
 | Saída avulsa e contagem de inventário | | ✔ | ✔ |
-| Cadastrar medicamentos e localizações (inclusive na conferência da NF-e) | | ✔ | ✔ |
+| Cadastrar medicamentos e locais de consumo (inclusive na conferência da NF-e) | | ✔ | ✔ |
 | Excluir registros e notas fiscais descartadas | | ✔ | ✔ |
 | Registrar devolução de dispensação | | ✔ | ✔ |
 | Autorizar estorno de movimentação (com a própria senha) | | ✔ | ✔ |
@@ -578,7 +587,7 @@ e locais podem ser desativados.
 
 **O saldo aparece, mas o sistema diz que não há estoque suficiente.**
 Provavelmente parte do saldo está em lotes vencidos, que não podem ser dispensados. Confira em
-**Estoque → Lotes e saldos**.
+**Estoque → Lotes e validades**.
 
 **Cadastrei a alergia, mas o alerta não apareceu.**
 A verificação compara as alergias do paciente com o nome comercial, o princípio ativo e os

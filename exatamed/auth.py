@@ -223,6 +223,12 @@ def minha_senha():
     return render_template("auth/minha_senha.html")
 
 
+@bp.route("/configuracoes")
+@login_required
+def configuracoes():
+    return render_template("auth/configuracoes.html")
+
+
 @bp.route("/minha-aparencia", methods=["POST"])
 @login_required
 def meu_tema():
@@ -231,7 +237,7 @@ def meu_tema():
         abort(400)
     current_user.tema = tema
     db.session.commit()
-    return redirect(_destino_seguro(request.form.get("voltar")) or url_for("principal.painel"))
+    return redirect(_destino_seguro(request.form.get("voltar")) or url_for("auth.configuracoes"))
 
 
 # --------------------------------------------------------------------------- usuários (admin)

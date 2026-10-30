@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3"><i class="bi bi-gear"></i> Configurações</h1>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-person-circle" aria-hidden="true"></i> Minha conta</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4 text-muted fw-normal">Nome</dt><dd class="col-sm-8">{{ current_user.nome }}</dd>
+          <dt class="col-sm-4 text-muted fw-normal">Usuário</dt><dd class="col-sm-8">{{ current_user.login }}</dd>
+          <dt class="col-sm-4 text-muted fw-normal">Perfil</dt><dd class="col-sm-8">{{ current_user.perfil_descricao }}</dd>
+          {% if current_user.email %}<dt class="col-sm-4 text-muted fw-normal">E-mail</dt><dd class="col-sm-8">{{ current_user.email }}</dd>{% endif %}
+          {% if current_user.registro_profissional %}<dt class="col-sm-4 text-muted fw-normal">Registro profissional</dt><dd class="col-sm-8">{{ current_user.registro_profissional }}</dd>{% endif %}
+        </dl>
+        <p class="small text-muted mt-3 mb-0">Nome, perfil e e-mail são alterados pelo administrador, em <em>Administração › Usuários e permissões</em>.</p>
+      </div>
+      <div class="card-footer text-end"><a class="btn btn-outline-primary" href="{{ url_for('auth.minha_senha') }}"><i class="bi bi-key" aria-hidden="true"></i> Alterar minha senha</a></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <form method="post" action="{{ url_for('auth.meu_tema') }}" class="card h-100">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="voltar" value="{{ url_for('auth.configuracoes') }}">
+      <div class="card-header fw-semibold"><i class="bi bi-palette" aria-hidden="true"></i> Aparência</div>
+      <div class="card-body">
+        <p class="small text-muted">A escolha vale para o seu usuário, em qualquer computador ou celular. Relatórios impressos saem sempre no modo claro.</p>
+        <div class="row g-2" role="group" aria-label="Aparência">
+          {% for valor, icone, rotulo in [('claro', 'sun', 'Claro'), ('escuro', 'moon-stars', 'Escuro'), ('sistema', 'circle-half', 'Automático')] %}
+          <div class="col-4">
+            <button class="btn btn-outline-secondary w-100 py-3 opcao-tema {{ 'active' if current_user.tema == valor }}" name="tema" value="{{ valor }}"
+              aria-pressed="{{ 'true' if current_user.tema == valor else 'false' }}" title="{{ Usuario.TEMAS[valor] }}">
+              <i class="bi bi-{{ icone }} d-block fs-4" aria-hidden="true"></i>{{ rotulo }}</button>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="small text-muted mt-2 mb-0"><em>Automático</em> segue o modo claro ou escuro do aparelho.</p>
+      </div>
+    </form>
+  </div>
+  {% if current_user.pode(Usuario.ADMIN) %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-signpost-split" aria-hidden="true"></i> Primeiros passos</div>
+      <div class="card-body">
+        <p class="small mb-0">O roteiro de implantação aparece no alto do painel para o administrador e marca sozinho as etapas concluídas.</p>
+      </div>
+      <div class="card-footer text-end">
+        <form method="post" action="{{ url_for('ajuda.alternar_primeiros_passos', acao='mostrar' if current_user.ocultar_primeiros_passos else 'ocultar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-secondary">{{ 'Mostrar no painel' if current_user.ocultar_primeiros_passos else 'Ocultar do painel' }}</button></form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-info-circle" aria-hidden="true"></i> Sistema</div>
+      <div class="card-body small">
+        <p class="mb-1">ExataMed versão <strong>{{ versao }}</strong>.</p>
+        <p class="mb-0 text-muted">Usuários, perfis e auditoria ficam em <em>Administração</em>, no menu lateral.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

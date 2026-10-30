@@ -1,0 +1,66 @@
+{% extends "base.html" %}{% from "_macros.html" import select_local, selo, vazio %}
+{% block titulo %}Posição de estoque{% endblock %}
+{% macro qtd(valor, produto) %}{% if valor %}{{ valor|numero }} <span class="text-muted small">{{ produto.unidade_medida }}</span>{% else %}<span class="text-muted">—</span>{% endif %}{% endmacro %}
+{% macro validade(l) %}{% if l.proximo %}{{ l.proximo.validade|data }}{% if l.proximo.selo_validade %} {{ selo(*l.proximo.selo_validade) }}{% endif %}{% else %}<span class="text-muted">—</span>{% endif %}{% endmacro %}
+{% block conteudo %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h1 class="h3 mb-0"><i class="bi bi-boxes"></i> Posição de estoque</h1>
+  <button class="btn btn-outline-secondary d-print-none" data-acao="imprimir"><i class="bi bi-printer" aria-hidden="true"></i> Imprimir</button>
+</div>
+<form class="row g-2 mb-3 d-print-none" method="get" role="search">
+  <div class="col-md-4"><input class="form-control" name="q" value="{{ filtro.q }}" placeholder="Produto ou princípio ativo" aria-label="Pesquisar produto"></div>
+  <div class="col-md-3">{{ select_local(locais, 'localizacao_id', filtro.localizacao_id, obrigatorio=False, vazio='Todos os locais') }}</div>
+  <div class="col-md-3"><select class="form-select" name="situacao" aria-label="Situação"><option value="">Todas as situações</option>
+    {% for k, v in situacoes.items() %}<option value="{{ k }}" {{ 'selected' if filtro.situacao == k }}>{{ v }}</option>{% endfor %}</select></div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100"><i class="bi bi-funnel" aria-hidden="true"></i> Filtrar</button></div>
+</form>
+{% if linhas %}
+<p class="small text-muted mb-2">{{ linhas|length }} produto(s) · valor PEPS {{ linhas|sum(attribute='valor')|moeda }}.
+  A situação compara o saldo de todos os locais com o estoque mínimo do cadastro.</p>
+<div class="card d-none d-md-block"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead class="table-light"><tr><th>Produto</th>
+    {% for c in colunas %}<th class="text-end">{{ c.nome }}</th>{% endfor %}
+    {% if mostrar_outros %}<th class="text-end">Outros locais</th>{% endif %}
+    <th class="text-end">Total</th><th class="text-end">Mínimo</th><th>Situação</th><th>Próxima validade</th><th class="text-end">Valor PEPS</th></tr></thead>
+  <tbody>
+  {% for l in linhas %}{% set p = l.produto %}
+    <tr>
+      <td><a href="{{ url_for('estoque.lotes', produto_id=p.id) }}">{{ p }}</a>{% if p.principio_ativo %}<div class="small text-muted">{{ p.principio_ativo }}</div>{% endif %}</td>
+      {% for c in colunas %}<td class="text-end text-nowrap">{{ qtd(l.por_local.get(c.id), p) }}</td>{% endfor %}
+      {% if mostrar_outros %}<td class="text-end text-nowrap">{{ qtd(l.outros, p) }}</td>{% endif %}
+      <td class="text-end text-nowrap fw-semibold">{{ qtd(l.total, p) }}{% if l.indisponivel %}<div class="small text-danger fw-normal" title="Lotes vencidos ou bloqueados">{{ l.indisponivel|numero }} indisponível</div>{% endif %}</td>
+      <td class="text-end text-nowrap">{{ p.estoque_minimo|numero if p.estoque_minimo else '—' }}</td>
+      <td>{% if l.selo %}{{ selo(*l.selo) }}{% endif %}</td>
+      <td class="text-nowrap">{{ validade(l) }}</td>
+      <td class="text-end text-nowrap">{{ l.valor|moeda }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot class="table-light fw-semibold"><tr><td colspan="{{ colunas|length + (2 if mostrar_outros else 1) + 4 }}">Total</td><td class="text-end text-nowrap">{{ linhas|sum(attribute='valor')|moeda }}</td></tr></tfoot>
+</table></div></div>
+<div class="d-md-none lista-cartoes">
+  {% for l in linhas %}{% set p = l.produto %}
+  <div class="card mb-2"><div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <a class="fw-semibold" href="{{ url_for('estoque.lotes', produto_id=p.id) }}">{{ p }}</a>
+      <span class="fw-semibold text-nowrap">{{ qtd(l.total, p) }}</span></div>
+    {% if l.selo %}<div class="mt-1">{{ selo(*l.selo) }}</div>{% endif %}
+    <dl class="row small mb-0 mt-2">
+      {% for c in colunas %}<dt class="col-6 text-muted fw-normal">{{ c.nome }}</dt><dd class="col-6 mb-1 text-end">{{ qtd(l.por_local.get(c.id), p) }}</dd>{% endfor %}
+      {% if l.outros %}<dt class="col-6 text-muted fw-normal">Outros locais</dt><dd class="col-6 mb-1 text-end">{{ qtd(l.outros, p) }}</dd>{% endif %}
+      {% if l.indisponivel %}<dt class="col-6 text-muted fw-normal">Indisponível</dt><dd class="col-6 mb-1 text-end text-danger">{{ l.indisponivel|numero }}</dd>{% endif %}
+      <dt class="col-6 text-muted fw-normal">Mínimo</dt><dd class="col-6 mb-1 text-end">{{ p.estoque_minimo|numero if p.estoque_minimo else '—' }}</dd>
+      <dt class="col-6 text-muted fw-normal">Próxima validade</dt><dd class="col-6 mb-1 text-end">{{ validade(l) }}</dd>
+      <dt class="col-6 text-muted fw-normal">Valor PEPS</dt><dd class="col-6 mb-1 text-end">{{ l.valor|moeda }}</dd>
+    </dl>
+  </div></div>
+  {% endfor %}
+  <p class="fw-semibold text-end mb-0">Total: {{ linhas|sum(attribute='valor')|moeda }}</p>
+</div>
+{% elif filtro.q or filtro.localizacao_id or filtro.situacao %}
+{{ vazio('funnel', 'Nenhum produto para os filtros escolhidos.', None, url_for('estoque.posicao'), 'Limpar filtros', 'x-lg', secundario=True) }}
+{% else %}
+{{ vazio('boxes', 'Nenhum medicamento ou material ativo.', 'Cadastre os produtos para acompanhar a posição do estoque.',
+         url_for('cadastros.editar', chave='produtos'), 'Cadastrar medicamento / material') }}
+{% endif %}
+{% endblock %}

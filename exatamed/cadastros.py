@@ -263,7 +263,7 @@ CADASTROS = {
             Campo("gtin", "Código de barras (GTIN/EAN)", largura=3,
                   ajuda="Usado para reconhecer o produto na importação do XML da NF-e."),
             Campo("registro_anvisa", "Registro ANVISA", largura=3),
-            Campo("localizacao_padrao_id", "Localização padrão", "select", opcoes=_opcoes_localizacao,
+            Campo("localizacao_padrao_id", "Local padrão", "select", opcoes=_opcoes_localizacao,
                   largura=4, secao="Estoque",
                   ajuda="Lote, validade, local e custo são informados em cada entrada de estoque."),
             Campo("estoque_minimo", "Estoque mínimo", "number", largura=2),
@@ -286,7 +286,7 @@ CADASTROS = {
         coluna_selo="saldo",
     ),
     "localizacoes": Cadastro(
-        "localizacoes", Localizacao, "Localizações", "Localização",
+        "localizacoes", Localizacao, "Locais de consumo", "Local de consumo",
         campos=[
             Campo("nome", "Nome", obrigatorio=True, largura=5, ajuda="Ex.: Leito 1, Sala de parada"),
             Campo("descricao", "Descrição", largura=5),

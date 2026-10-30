@@ -47,14 +47,21 @@ def test_lista_de_produtos(client, produtos):
     assert "4 registro(s)" in pagina
 
 
+def _ativos(pagina):
+    return re.findall(r'lateral-link active" href="([^"]+)" aria-current="page"', pagina)
+
+
 def test_caminho_e_menu_ativo(client, produtos):
     pagina = client.get("/cadastros/produtos/").get_data(as_text=True)
     assert re.search(r'<nav aria-label="Caminho".*Início.*Cadastros.*Medicamentos e materiais', pagina, re.S)
-    assert re.search(r'nav-link dropdown-toggle active"[^>]*aria-current="page"[^>]*>Cadastros', pagina)
+    assert _ativos(pagina) == ["/cadastros/produtos/"]
+    assert _ativos(client.get("/cadastros/produtos/novo").get_data(as_text=True)) == ["/cadastros/produtos/"]
     relatorio = client.get("/relatorios/saidas_avulsas").get_data(as_text=True)
-    assert 'href="/relatorios/">Relatórios</a>' in relatorio and "Saídas avulsas</li>" in relatorio
-    devolucao = client.get("/estoque/dispensacao").get_data(as_text=True)
-    assert re.search(r'nav-link active"[^>]*href="/estoque/dispensacao"', devolucao)
+    assert _ativos(relatorio) == ["/relatorios/"]
+    assert "Visão geral</li>" in relatorio and "Saídas avulsas</li>" in relatorio
+    assert _ativos(client.get("/estoque/dispensacao").get_data(as_text=True)) == ["/estoque/dispensacao"]
+    assert _ativos(client.get("/lgpd/").get_data(as_text=True)) == ["/auditoria/"]
+    assert _ativos(client.get("/minha-senha").get_data(as_text=True)) == ["/configuracoes"]
     painel = client.get("/").get_data(as_text=True)
     assert 'aria-label="Caminho"' not in painel and 'aria-current="page"' not in painel
 
@@ -126,12 +133,79 @@ def test_tema_por_usuario(client, app):
     assert Usuario.query.filter_by(login="admin").one().tema == "escuro"
     assert RegistroAuditoria.query.count() == auditoria  # preferência de tela não entra na trilha
     pagina = client.get("/").get_data(as_text=True)
-    assert 'data-tema="escuro"' in pagina and 'value="escuro"\n                  aria-pressed="true"' in pagina
+    assert 'data-tema="escuro"' in pagina
+    assert re.search(r'value="escuro"\s+aria-pressed="true"', client.get("/configuracoes").get_data(as_text=True))
     assert client.post("/minha-aparencia", data={"tema": "roxo"}).status_code == 400
     externo = client.post("/minha-aparencia", data={"tema": "claro", "voltar": "//site.com/"})
-    assert externo.location.endswith("/") and "site.com" not in externo.location
+    assert externo.location.endswith("/configuracoes") and "site.com" not in externo.location
 
 
 def test_tema_exige_login(anonimo):
     assert anonimo.post("/minha-aparencia", data={"tema": "escuro"}).status_code == 302
     assert 'data-tema="sistema"' in anonimo.get("/login").get_data(as_text=True)
+
+
+# ------------------------------------------------------------------- 2.9: menu lateral
+
+GRUPOS_MENU = ["Visão geral", "Operações", "Estoque", "Cadastros", "Administração"]
+
+
+def _menu(pagina):
+    return pagina.split('aria-label="Menu principal"', 1)[1].split("</nav>", 1)[0]
+
+
+def test_menu_lateral_por_blocos(client):
+    menu = _menu(client.get("/").get_data(as_text=True))
+    titulos = re.findall(r'class="lateral-titulo"[^>]*>([^<]+)<', menu)
+    assert titulos == GRUPOS_MENU
+    itens = [i.strip() for i in re.findall(r'lateral-link[^>]*><i[^>]*></i> ([^<]+)</a>', menu)]
+    assert itens == ["Dashboard", "Relatórios", "Dispensações", "Entradas de estoque", "Saídas avulsas",
+                     "Transferências", "Inventário", "Posição de estoque", "Lotes e validades", "Movimentações",
+                     "Notas fiscais",
+                     "Pacientes", "Médicos", "Medicamentos e materiais", "Locais de consumo",
+                     "Usuários e permissões", "Registros de auditoria", "Ajuda", "Configurações"]
+    assert 'data-bs-target="#menu-lateral"' in client.get("/").get_data(as_text=True)  # botão do celular
+
+
+def test_menu_respeita_o_perfil(auxiliar):
+    menu = _menu(auxiliar.get("/").get_data(as_text=True))
+    for oculto in ("Saídas avulsas", "Inventário", "Usuários e permissões", "Registros de auditoria"):
+        assert oculto not in menu
+    for visivel in ("Dispensações", "Posição de estoque", "Locais de consumo", "Ajuda", "Configurações"):
+        assert visivel in menu
+
+
+def test_locais_de_consumo(client):
+    pagina = client.get("/cadastros/localizacoes/").get_data(as_text=True)
+    assert "<h1 class=\"h3 mb-0\">Locais de consumo</h1>" in pagina and "Localizações" not in pagina
+
+
+def test_posicao_de_estoque(client, produtos):
+    pagina = client.get("/estoque/posicao").get_data(as_text=True)
+    tabela = pagina.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+    assert all(nome in tabela for nome in ("Abaixo", "Falta", "Ok", "Novo"))
+    assert "Abaixo do mínimo" in tabela and "Em falta" in tabela and "Vence em 20 dias" in tabela
+    assert "<th class=\"text-end\">Farmácia SUS</th>" in pagina
+    falta = client.get("/estoque/posicao?situacao=falta").get_data(as_text=True).split("<tbody>", 1)[1]
+    assert "Falta" in falta and ">Abaixo<" not in falta
+    sus = Localizacao.query.filter_by(nome="Farmácia SUS").one()
+    por_local = client.get(f"/estoque/posicao?localizacao_id={sus.id}").get_data(as_text=True).split("<tbody>", 1)[1]
+    assert "Abaixo" in por_local and "Novo" not in por_local.split("</tbody>")[0]
+    vazio = client.get("/estoque/posicao?q=zzz").get_data(as_text=True)
+    assert "Nenhum produto para os filtros escolhidos." in vazio
+
+
+def test_configuracoes(client, auxiliar):
+    pagina = client.get("/configuracoes").get_data(as_text=True)
+    assert "Minha conta" in pagina and "Aparência" in pagina and "Primeiros passos" in pagina
+    assert 'value="sistema"' in pagina and 'href="/minha-senha"' in pagina
+    resposta = client.post("/minha-aparencia", data={"tema": "escuro"})
+    assert resposta.location.endswith("/configuracoes")
+    assert "Primeiros passos" not in auxiliar.get("/configuracoes").get_data(as_text=True)
+
+
+def test_abas_dos_registros_de_auditoria(client):
+    for url in ("/auditoria/", "/lgpd/", "/auditoria/integridade"):
+        pagina = client.get(url).get_data(as_text=True)
+        assert "Registros de auditoria</h1>" in pagina and "nav-tabs" in pagina
+        assert f'nav-link active" href="{url}"' in pagina, url

@@ -3,6 +3,26 @@
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto usa
 [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [2.9.0] — 2026-10-30
+
+### Alterado
+- Menu em **barra lateral esquerda**, em blocos: Visão geral (Dashboard, Relatórios), Operações
+  (Dispensações, Entradas de estoque, Saídas avulsas, Transferências, Inventário), Estoque
+  (Posição de estoque, Lotes e validades, Movimentações, Notas fiscais), Cadastros (Pacientes,
+  Médicos, Medicamentos e materiais, Locais de consumo), Administração (Usuários e permissões,
+  Registros de auditoria, Ajuda) e Configurações. No celular e tablet, o menu abre por cima da
+  página pelo botão ☰. O topo traz só o menu do usuário.
+- "Localizações" passa a se chamar **Locais de consumo**; "Lotes e saldos" passa a **Lotes e
+  validades**.
+- **Registros de auditoria** reúne, em abas, a trilha de alterações, os acessos a dados pessoais
+  (LGPD) e a verificação de integridade.
+
+### Adicionado
+- **Posição de estoque**: saldo de cada produto ativo por farmácia (e nos demais locais), estoque
+  mínimo, situação, próxima validade e valor PEPS, com filtros por produto, local e situação.
+- Página **Configurações**: dados da conta, troca de senha, aparência (claro, escuro ou
+  automático) e, para o administrador, o roteiro de primeiros passos.
+
 ## [2.8.0] — 2026-10-22
 
 ### Adicionado
