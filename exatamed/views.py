@@ -8,6 +8,7 @@ from decimal import Decimal
 from flask import Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from . import dashboard, entrada_nfe, estoque, graficos, relatorios
 from .ajuda import primeiros_passos
@@ -470,6 +471,48 @@ def bloqueio_lote(id):
             db.session.rollback()
             flash(str(erro), "danger")
     return render_template("estoque/lote_bloqueio.html", lote=lote, mesmos=mesmos)
+
+
+SITUACOES_POSICAO = {"falta": "Em falta", "abaixo": "Abaixo do mínimo", "ok": "Sem alerta"}
+
+
+@bp_estoque.route("/posicao")
+def posicao():
+    """Posição de estoque: saldo de cada produto ativo nos locais principais e nos demais."""
+    termo = (request.args.get("q") or "").strip()
+    localizacao_id = request.args.get("localizacao_id", type=int)
+    situacao = request.args.get("situacao", "")
+    consulta = Produto.query.filter_by(ativo=True).options(selectinload(Produto.lotes))
+    if termo:
+        padrao = f"%{termo}%"
+        consulta = consulta.filter(db.or_(Produto.nome_comercial.ilike(padrao), Produto.principio_ativo.ilike(padrao)))
+    contexto = _contexto_formularios()
+    colunas = [l for l in contexto["locais"] if l.principal and (not localizacao_id or l.id == localizacao_id)]
+    ids_colunas = {l.id for l in colunas}
+    linhas = []
+    for produto in consulta.order_by(Produto.nome_comercial):
+        selo = produto.situacao_estoque
+        if situacao and situacao != ({"critico": "falta", "serio": "abaixo"}.get(selo[0]) if selo else "ok"):
+            continue
+        lotes = [l for l in produto.lotes if l.saldo > 0 and (not localizacao_id or l.localizacao_id == localizacao_id)]
+        if localizacao_id and not lotes:
+            continue
+        por_local = {}
+        for lote in lotes:
+            por_local[lote.localizacao_id] = por_local.get(lote.localizacao_id, ZERO) + lote.saldo
+        uteis = [l for l in lotes if not l.bloqueado and not l.vencido]
+        proximo = min(uteis, key=lambda l: l.validade, default=None)
+        linhas.append({
+            "produto": produto, "selo": selo, "por_local": por_local,
+            "outros": sum((q for local, q in por_local.items() if local not in ids_colunas), ZERO),
+            "total": sum(por_local.values(), ZERO),
+            "indisponivel": sum((l.saldo for l in lotes if l.bloqueado or l.vencido), ZERO),
+            "valor": sum((l.saldo * l.custo_unitario for l in lotes), ZERO),
+            "proximo": proximo,
+        })
+    return render_template("estoque/posicao.html", linhas=linhas, colunas=colunas,
+                           mostrar_outros=any(l["outros"] for l in linhas), situacoes=SITUACOES_POSICAO,
+                           filtro=request.args, **contexto)
 
 
 @bp_estoque.route("/lotes")

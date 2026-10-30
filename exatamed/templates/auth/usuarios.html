@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block titulo %}Usuários{% endblock %}
+{% block titulo %}Usuários e permissões{% endblock %}
 {% block conteudo %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0"><i class="bi bi-people"></i> Usuários</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-people"></i> Usuários e permissões</h1>
   <a class="btn btn-exata" href="{{ url_for('auth.editar_usuario') }}"><i class="bi bi-person-plus"></i> Novo usuário</a>
 </div>
 <div class="card"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
@@ -33,7 +33,7 @@
   <h2 class="h6">Permissões por perfil</h2>
   <ul class="mb-0">
     <li><strong>Auxiliar de farmácia:</strong> consultas e relatórios; cadastro de pacientes e médicos; entradas, transferências e dispensação de itens sem controle especial. Não libera alertas de alergia.</li>
-    <li><strong>Farmacêutico(a):</strong> tudo do auxiliar, mais dispensação de controlados, liberação de alertas de alergia, saídas avulsas, contagem de inventário, cadastro de medicamentos e localizações e exclusão de registros.</li>
+    <li><strong>Farmacêutico(a):</strong> tudo do auxiliar, mais dispensação de controlados, liberação de alertas de alergia, saídas avulsas, contagem de inventário, cadastro de medicamentos e locais de consumo e exclusão de registros.</li>
     <li><strong>Administrador(a):</strong> tudo do farmacêutico, mais a gestão de usuários.</li>
   </ul>
 </div>

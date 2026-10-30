@@ -48,7 +48,7 @@ relatórios de consumo, compras e inventário que a farmácia precisa no dia a d
 
 ## Funcionalidades
 
-- Cadastro de **pacientes**, **médicos**, **medicamentos/materiais** e **localizações**, com
+- Cadastro de **pacientes**, **médicos**, **medicamentos/materiais** e **locais de consumo**, com
   **endereço preenchido automaticamente pelo CEP** (ViaCEP).
 - Estoque por **lote, validade e localização**, com custo unitário por camada.
 - **Importação do XML da NF-e** na entrada de estoque: lotes, validades e custo de aquisição
@@ -103,11 +103,19 @@ localização padrão, **alertas de alergia**, estoques mínimo e máximo.
 pois um mesmo produto pode ter vários lotes, em locais diferentes e com custos diferentes.
 O custo das saídas é apurado pelo método PEPS.
 
-### Localização
+### Locais de consumo
 O sistema já vem com os dois locais principais, **Farmácia SUS** e **Farmácia Particular**,
 que não podem ser excluídos nem desativados. Os usuários cadastram outros locais conforme a
-necessidade: *Leito 1, Leito 2, Leito 3, Sala de parada, Sala de recuperação, UTI* etc.
-As localizações servem tanto como local de armazenamento quanto como destino da dispensação.
+necessidade (*Cadastros → Locais de consumo*): *Leito 1, Leito 2, Leito 3, Sala de parada, Sala
+de recuperação, UTI* etc. Os locais servem tanto como local de armazenamento quanto como destino
+da dispensação.
+
+### Navegação
+O menu lateral agrupa as funções em **Visão geral** (Dashboard, Relatórios), **Operações**
+(Dispensações, Entradas de estoque, Saídas avulsas, Transferências, Inventário), **Estoque**
+(Posição de estoque, Lotes e validades, Movimentações, Notas fiscais), **Cadastros**,
+**Administração** (Usuários e permissões, Registros de auditoria, Ajuda) e **Configurações**.
+No celular, abre pelo botão ☰. Cada perfil vê só o que pode usar.
 
 ## Controle de estoque e método PEPS
 
@@ -147,7 +155,7 @@ estoque.
 O menu **Dashboard** traz os painéis de gestão, com gráficos em SVG gerados no servidor (sem
 bibliotecas externas, compatíveis com a política de segurança de conteúdo e com a impressão):
 
-- **Evolução do custo** por dia, mês ou ano, com filtro de médico e de localização;
+- **Evolução do custo** por dia, mês ou ano, com filtro de médico e de local de consumo;
 - **Curva ABC** do consumo, com filtro de medicamentos e materiais;
 - **Itens próximos ao vencimento** em 30, 60 e 90 dias (e lotes vencidos com saldo);
 - **Taxa de ruptura** (itens em falta) e **nível do estoque de segurança**;
@@ -177,7 +185,7 @@ bibliotecas externas, compatíveis com a política de segurança de conteúdo e 
 
 ![Relatório de pedido de compra](docs/img/pedido.png)
 
-A **contagem de inventário** (menu *Estoque → Contagem de inventário*) permite lançar a contagem
+A **contagem de inventário** (menu *Operações → Inventário*) permite lançar a contagem
 física de cada lote de um local; as diferenças geram movimentações de *ajuste de inventário*.
 
 ## Usuários, login e perfis de acesso
@@ -188,8 +196,8 @@ automaticamente o usuário que a fez, e o comprovante de dispensação mostra o 
 | Perfil | Pode |
 |--------|------|
 | **Auxiliar de farmácia** | Consultar estoque e relatórios; cadastrar pacientes e médicos; registrar entradas, transferências e dispensações de itens **sem** controle especial. |
-| **Farmacêutico(a)** | Tudo do auxiliar, mais: dispensar itens de **controle especial**, **liberar dispensação com alerta de alergia**, saídas avulsas, contagem de inventário, cadastrar medicamentos e localizações e excluir registros. |
-| **Administrador(a)** | Tudo do farmacêutico, mais: cadastrar usuários, definir perfis, redefinir senhas e desbloquear contas (menu do usuário → *Usuários*). |
+| **Farmacêutico(a)** | Tudo do auxiliar, mais: dispensar itens de **controle especial**, **liberar dispensação com alerta de alergia**, saídas avulsas, contagem de inventário, cadastrar medicamentos e locais de consumo e excluir registros. |
+| **Administrador(a)** | Tudo do farmacêutico, mais: cadastrar usuários, definir perfis, redefinir senhas e desbloquear contas (menu *Administração → Usuários e permissões*). |
 
 Segurança:
 
@@ -234,7 +242,7 @@ Medidas implementadas:
 | Medida | Como funciona |
 |---|---|
 | **Mascaramento** | CPF (`***.982.247-**`), Cartão SUS (`***********5933`), RG e telefone aparecem parcialmente ocultos em listas, na seleção de pacientes, nos relatórios e nos CSV. Completos só na ficha do cadastro e no comprovante de dispensação. |
-| **Registro de acessos** (art. 37) | Tabela `registros_acesso`: quem visualizou a ficha, incluiu, alterou, abriu comprovante, exportou relatório com pacientes ou anonimizou um cadastro, com data, hora e IP. Consulta em *LGPD: registro de acessos* (administrador). |
+| **Registro de acessos** (art. 37) | Tabela `registros_acesso`: quem visualizou a ficha, incluiu, alterou, abriu comprovante, exportou relatório com pacientes ou anonimizou um cadastro, com data, hora e IP. Consulta em *Administração → Registros de auditoria* (administrador). |
 | **Relatórios sem identificação** | Opção *Ocultar identificação dos pacientes*: o nome vira um código (`P-000123`) e os documentos são omitidos, na tela e no CSV. |
 | **Anonimização** (arts. 16 e 18) | O administrador anonimiza paciente, médico ou usuário de forma irreversível, informando o motivo. Os dados identificadores são apagados (da data de nascimento fica o ano) e o histórico de estoque é preservado. |
 | **Prazo de guarda** | Quem teve dispensação de medicamento de controle especial (inclusive antimicrobianos) nos últimos 2 anos só pode ser anonimizado após esse prazo (`PRAZO_GUARDA_CONTROLADOS_ANOS` em `exatamed/lgpd.py`). |
@@ -254,7 +262,7 @@ e pelo atendimento aos titulares.
 | **Nada é apagado** | Correções são novas movimentações (devolução, ajuste de inventário), sempre com motivo e usuário. |
 | **Restrições no banco** | Saldo não negativo, quantidades e custos válidos, número de dispensação único por ano. |
 
-A verificação roda em *Integridade dos registros* (administrador) ou por linha de comando,
+A verificação roda em *Administração → Registros de auditoria → Integridade* (administrador) ou por linha de comando,
 para agendamento e alerta:
 
 ```bash

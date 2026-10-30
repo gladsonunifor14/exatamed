@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% from "_macros.html" import select_local %}
-{% block titulo %}Contagem de inventário{% endblock %}
+{% block titulo %}Inventário{% endblock %}
 {% block conteudo %}
-<h1 class="h3 mb-3"><i class="bi bi-clipboard-check"></i> Contagem de inventário</h1>
+<h1 class="h3 mb-3"><i class="bi bi-clipboard-check"></i> Inventário (contagem)</h1>
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-4">{{ select_local(locais, 'localizacao_id', localizacao.id if localizacao else None) }}</div>
   <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Carregar lotes</button></div>
